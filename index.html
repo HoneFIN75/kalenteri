@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kilpailukalenteri – Prototyyppi</title>
+  <meta name="description" content="Kilpailukalenterijärjestelmän prototyyppi. Valitse rooli ja tutustu tulevaan järjestelmään." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <span class="badge">Prototyyppi v0.1</span>
+    <h1>🏆 Kilpailukalenteri</h1>
+    <p>
+      Kilpailukalenterijärjestelmän prototyyppi. Valitse alla olevalta listalta,
+      millä roolilla haluat kokeilla järjestelmää – kirjautumista ei tarvita.
+    </p>
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Valitun roolin banneri (piilotettu kunnes rooli valitaan) -->
+    <div id="selected-banner" class="selected-banner hidden" role="status" aria-live="polite">
+      <span class="banner-icon" id="banner-icon" aria-hidden="true"></span>
+      <div class="banner-text">
+        <div class="banner-label">Tällä hetkellä valittu rooli</div>
+        <div class="banner-role" id="banner-role"></div>
+        <div class="banner-hint">
+          Voit vaihtaa roolin milloin tahansa klikkaamalla alla olevaa korttia.
+        </div>
+      </div>
+    </div>
+
+    <!-- Roolivalinta -->
+    <section class="roles-section" aria-labelledby="roles-heading">
+      <h2 class="section-title" id="roles-heading">
+        Valitse rooli <span>– testaa prototyyppiä eri näkökulmista</span>
+      </h2>
+      <div id="role-grid" class="role-grid" role="group" aria-label="Käyttäjäroolit"></div>
+    </section>
+
+    <!-- Tietoa tulevasta kehityksestä -->
+    <aside class="info-box" aria-label="Tietoa prototyypistä">
+      <span class="info-icon" aria-hidden="true">ℹ️</span>
+      <div class="info-content">
+        <h3>Roolikohtaiset toiminnallisuudet tulossa</h3>
+        <p>
+          Tässä prototyypissä voit valita roolin ilman kirjautumista.
+          Seuraavissa vaiheissa roolin perusteella näytetään eri
+          toiminnallisuuksia ja näkymiä, esimerkiksi:
+        </p>
+        <ul>
+          <li><strong>Admin</strong> – käyttäjien ja järjestelmän hallinta</li>
+          <li><strong>Liitto</strong> – kilpailukalenterin hyväksyminen ja valvonta</li>
+          <li><strong>Kilpailujohtaja</strong> – kilpailun luominen ja hallinta</li>
+          <li><strong>Kilpailija</strong> – ilmoittautuminen ja omat tulokset</li>
+          <li><strong>Katsoja</strong> – julkinen kalenteri ja tuloslistat</li>
+        </ul>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>Kilpailukalenteri – Prototyyppi &copy; 2025 · Ei tietokantaa, ei kirjautumista</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
