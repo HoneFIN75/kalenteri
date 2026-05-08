@@ -2,11 +2,11 @@
  * Kilpailukalenterijärjestelmä – Prototyyppi
  * Roolivalinta ja uutisnäkymät etusivulle
  *
- * Roolit (ei tietokantaa, ei kirjautumista):
+ * Roolit (ei kirjautumista):
  *   admin, liitto, kilpailujohtaja, kilpailija, katsoja
  *
- * Valittu rooli tallennetaan sessionStorageen ja uutiset sekä tykkäykset
- * localStorageen, jotta prototyyppi toimii myös sivun päivityksen jälkeen.
+ * Valittu rooli tallennetaan sessionStorageen. Uutiset haetaan/tallennetaan
+ * PHP-API:n kautta MySQL:ään ja tykkäysten roolikohtainen tila localStorageen.
  */
 
 const ROLES = [
@@ -59,8 +59,9 @@ const SECTION_CONFIG = {
   },
 };
 
-const NEWS_STORAGE_KEY = 'kalenteriNews';
 const NEWS_LIKES_STORAGE_KEY = 'kalenteriNewsLikes';
+const NEWS_API_URL = 'api/news.php';
+let cachedNewsItems = [];
 
 /** Palauttaa tällä hetkellä valitun roolin sessionStoragesta. */
 function getSelectedRole() {
@@ -116,27 +117,63 @@ function getRouteNewsId() {
   return decodeURIComponent(hash.slice('#news/'.length));
 }
 
-/** Lukee localStoragesta uutiset. */
+/** Lukee uutiset välimuistista. */
 function loadNews() {
-  try {
-    const rawValue = localStorage.getItem(NEWS_STORAGE_KEY);
-    const parsed = rawValue ? JSON.parse(rawValue) : [];
+  return cachedNewsItems;
+}
 
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
+/** Hakee uutiset API:sta ja päivittää välimuistin. */
+async function fetchNewsFromApi() {
+  const response = await fetch(NEWS_API_URL, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
 
-    return parsed
-      .map((item) => normalizeNews(item))
-      .filter(Boolean);
-  } catch (error) {
-    return [];
+  if (!response.ok) {
+    throw new Error('Uutisten haku epäonnistui.');
+  }
+
+  const parsed = await response.json();
+  if (!Array.isArray(parsed)) {
+    cachedNewsItems = [];
+    return;
+  }
+
+  cachedNewsItems = parsed
+    .map((item) => normalizeNews(item))
+    .filter(Boolean);
+}
+
+/** Tallentaa tai päivittää yhden uutisen API:n kautta. */
+async function saveNewsItem(newsItem) {
+  const response = await fetch(NEWS_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(newsItem),
+  });
+
+  if (!response.ok) {
+    throw new Error('Uutisen tallennus epäonnistui.');
   }
 }
 
-/** Tallentaa uutiset localStorageen. */
-function saveNews(newsItems) {
-  localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(newsItems));
+/** Poistaa uutisen API:n kautta. */
+async function deleteNewsItem(newsId) {
+  const response = await fetch(`${NEWS_API_URL}?id=${encodeURIComponent(newsId)}`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Uutisen poisto epäonnistui.');
+  }
 }
 
 /** Lukee tykkäystiedot localStoragesta. */
@@ -536,7 +573,7 @@ function buildVisibilityOptions(section, selectedRoles) {
 }
 
 /** Käsittelee uutislomakkeen tallennuksen. */
-function handleNewsSubmit(event) {
+async function handleNewsSubmit(event) {
   event.preventDefault();
 
   const selectedRole = getSelectedRole();
@@ -563,23 +600,24 @@ function handleNewsSubmit(event) {
     .filter((roleId) => roleId !== section);
 
   const newsItems = loadNews();
+  let newsToSave = null;
 
   if (newsId) {
-    const newsIndex = newsItems.findIndex((item) => item.id === newsId);
-    if (newsIndex === -1 || newsItems[newsIndex].section !== section) {
+    const newsItem = newsItems.find((item) => item.id === newsId);
+    if (!newsItem || newsItem.section !== section) {
       closeEditor();
       renderApp();
       return;
     }
 
-    newsItems[newsIndex] = {
-      ...newsItems[newsIndex],
+    newsToSave = {
+      ...newsItem,
       title,
       content,
       visibleRoles,
     };
   } else {
-    newsItems.push({
+    newsToSave = {
       id: createNewsId(),
       section,
       title,
@@ -587,16 +625,21 @@ function handleNewsSubmit(event) {
       visibleRoles,
       publishedAt: new Date().toISOString(),
       likesCount: 0,
-    });
+    };
   }
 
-  saveNews(newsItems);
-  closeEditor();
-  renderApp();
+  try {
+    await saveNewsItem(newsToSave);
+    await fetchNewsFromApi();
+    closeEditor();
+    renderApp();
+  } catch (error) {
+    window.alert('Uutisen tallennus epäonnistui. Yritä uudelleen.');
+  }
 }
 
 /** Poistaa uutisen ja siihen liittyvät tykkäysmerkinnät. */
-function deleteNews(newsId) {
+async function deleteNews(newsId) {
   const selectedRole = getSelectedRole();
   const newsItems = loadNews();
   const newsItem = newsItems.find((item) => item.id === newsId);
@@ -609,22 +652,27 @@ function deleteNews(newsId) {
     return;
   }
 
-  saveNews(newsItems.filter((item) => item.id !== newsId));
+  try {
+    await deleteNewsItem(newsId);
+    await fetchNewsFromApi();
 
-  const likesByRole = loadNewsLikes();
-  Object.keys(likesByRole).forEach((roleId) => {
-    const likedNewsIds = Array.isArray(likesByRole[roleId]) ? likesByRole[roleId] : [];
-    likesByRole[roleId] = likedNewsIds.filter((likedNewsId) => likedNewsId !== newsId);
-  });
-  saveNewsLikes(likesByRole);
+    const likesByRole = loadNewsLikes();
+    Object.keys(likesByRole).forEach((roleId) => {
+      const likedNewsIds = Array.isArray(likesByRole[roleId]) ? likesByRole[roleId] : [];
+      likesByRole[roleId] = likedNewsIds.filter((likedNewsId) => likedNewsId !== newsId);
+    });
+    saveNewsLikes(likesByRole);
 
-  window.location.hash = '#news';
-  closeEditor();
-  renderApp();
+    window.location.hash = '#news';
+    closeEditor();
+    renderApp();
+  } catch (error) {
+    window.alert('Uutisen poisto epäonnistui. Yritä uudelleen.');
+  }
 }
 
 /** Lisää tai poistaa tykkäyksen valitulta roolilta. */
-function toggleNewsLike(newsId) {
+async function toggleNewsLike(newsId) {
   const selectedRole = getSelectedRole();
   if (!selectedRole) {
     return;
@@ -649,9 +697,15 @@ function toggleNewsLike(newsId) {
   }
 
   likesByRole[selectedRole] = [...likedNewsIds];
-  saveNewsLikes(likesByRole);
-  saveNews(newsItems);
-  renderApp();
+
+  try {
+    await saveNewsItem(newsItems[newsIndex]);
+    saveNewsLikes(likesByRole);
+    await fetchNewsFromApi();
+    renderApp();
+  } catch (error) {
+    window.alert('Tykkäyksen tallennus epäonnistui. Yritä uudelleen.');
+  }
 }
 
 /** Päivittää koko käyttöliittymän nykyisen tilan mukaan. */
@@ -665,16 +719,28 @@ function renderApp() {
 function bindEventListeners() {
   document.getElementById('news-form').addEventListener('submit', handleNewsSubmit);
   document.getElementById('cancel-news-button').addEventListener('click', closeEditor);
-  window.addEventListener('hashchange', renderApp);
+  window.addEventListener('hashchange', async () => {
+    try {
+      await fetchNewsFromApi();
+    } catch (error) {
+      // Jos haku epäonnistuu, näytetään viimeisin välimuisti.
+    }
+    renderApp();
+  });
 }
 
 /** Alustaa sovelluksen sivun latautuessa. */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (!window.location.hash) {
     window.location.hash = '#news';
   }
 
   buildRoleCards();
   bindEventListeners();
+  try {
+    await fetchNewsFromApi();
+  } catch (error) {
+    // Jos haku epäonnistuu, näytetään tyhjä listaus.
+  }
   renderApp();
 });

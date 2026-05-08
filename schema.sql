@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS news (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  section VARCHAR(20) NOT NULL,
+  title VARCHAR(120) NOT NULL,
+  content TEXT NOT NULL,
+  visible_roles TEXT NOT NULL,
+  published_at DATETIME NOT NULL,
+  likes_count INT NOT NULL DEFAULT 0
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
