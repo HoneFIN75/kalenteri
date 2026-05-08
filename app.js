@@ -24,7 +24,7 @@ const ROLES = [
   },
   {
     id: 'kilpailujohtaja',
-    name: 'Kilpailujohtaja',
+    name: 'Kilpailunjohtaja',
     icon: '📋',
     description: 'Kilpailun organisointi ja hallinta',
   },
@@ -61,6 +61,7 @@ const SECTION_CONFIG = {
 
 const NEWS_LIKES_STORAGE_KEY = 'kalenteriNewsLikes';
 const NEWS_API_URL = 'api/news.php';
+const DB_TEST_API_URL = 'api/db-test.php';
 let cachedNewsItems = [];
 
 /** Palauttaa tällä hetkellä valitun roolin sessionStoragesta. */
@@ -173,6 +174,28 @@ async function deleteNewsItem(newsId) {
 
   if (!response.ok) {
     throw new Error('Uutisen poisto epäonnistui.');
+  }
+}
+
+/** Testaa tietokantayhteyden API:n kautta ja näyttää tuloksen käyttäjälle. */
+async function testDatabaseConnection() {
+  try {
+    const response = await fetch(DB_TEST_API_URL, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.ok) {
+      window.alert(data.message || 'Tietokantayhteys toimii.');
+    } else {
+      window.alert(`Virhe: ${data.error || 'Tietokantayhteys epäonnistui.'}`);
+    }
+  } catch (error) {
+    window.alert('Tietokantayhteyden testaus epäonnistui. Tarkista verkko ja yritä uudelleen.');
   }
 }
 
@@ -370,6 +393,12 @@ function renderNewsList(section, roleId, allNews) {
 
   addButton.hidden = !canManageSection(section, roleId);
   addButton.onclick = () => openEditor(section);
+
+  if (section === 'admin') {
+    const dbTestButton = document.getElementById('db-test-button');
+    dbTestButton.hidden = roleId !== 'admin';
+  }
+
   container.innerHTML = '';
 
   if (!roleId) {
@@ -719,6 +748,7 @@ function renderApp() {
 function bindEventListeners() {
   document.getElementById('news-form').addEventListener('submit', handleNewsSubmit);
   document.getElementById('cancel-news-button').addEventListener('click', closeEditor);
+  document.getElementById('db-test-button').addEventListener('click', testDatabaseConnection);
   window.addEventListener('hashchange', async () => {
     try {
       await fetchNewsFromApi();
