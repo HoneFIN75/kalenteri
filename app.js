@@ -162,14 +162,20 @@ function normalizeNews(item) {
     return null;
   }
 
-  const section = item.section === 'liitto' ? 'liitto' : item.section === 'admin' ? 'admin' : null;
+  let section = null;
+  if (item.section === 'admin' || item.section === 'liitto') {
+    section = item.section;
+  }
   if (!section) {
     return null;
   }
 
-  const visibleRoles = Array.isArray(item.visibleRoles)
-    ? [...new Set(item.visibleRoles.filter((roleId) => ROLES.some((role) => role.id === roleId) && roleId !== section))]
-    : [];
+  const validRoleIds = new Set(ROLES.map((role) => role.id));
+  const rawVisibleRoles = Array.isArray(item.visibleRoles) ? item.visibleRoles : [];
+  const filteredVisibleRoles = rawVisibleRoles.filter(
+    (roleId) => validRoleIds.has(roleId) && roleId !== section,
+  );
+  const visibleRoles = [...new Set(filteredVisibleRoles)];
 
   return {
     id: typeof item.id === 'string' && item.id ? item.id : createNewsId(),
