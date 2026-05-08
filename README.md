@@ -22,6 +22,7 @@ haluaa kokeilla järjestelmää. Valittu rooli tallennetaan
 ## Uutisointi prototyypissä
 
 - `admin` voi luoda, muokata ja poistaa admin-uutisia
+- `admin` voi testata tietokantayhteyden "Testaa tietokanta" -painikkeella admin-osiossa
 - `liitto` voi luoda, muokata ja poistaa liitto-uutisia
 - muut roolit näkevät uutisia vain, jos ne on kohdennettu heille
 - uutinen tarvitsee otsikon ja sisällön
@@ -40,6 +41,7 @@ index.html           – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uuti
 style.css            – Perustyylit ja uutisnäkymien ulkoasu
 app.js               – Roolivalinta, uutislogiikka, näkyvyys ja tykkäykset
 api/db.php           – Lukee DB-konfiguraation ja avaa PDO-yhteyden
+api/db-test.php      – Admin-tietokantatestin endpoint (palauttaa JSON-vastauksen)
 api/news.php         – Uutis-API (GET, POST, DELETE)
 schema.sql           – MySQL-skeema `news`-taululle
 config/db.example.php – Esimerkkipohja tietokanta-asetuksille
