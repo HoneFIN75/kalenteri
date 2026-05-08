@@ -1,6 +1,7 @@
 # Kilpailukalenteri – Prototyyppi
 
-Kilpailukalenterijärjestelmän prototyyppi. Ensimmäinen vaihe keskittyy etusivun roolivalintaan.
+Kilpailukalenterijärjestelmän prototyyppi. Nykyinen versio keskittyy etusivun
+roolivalintaan sekä admin- ja liitto-uutisointiin.
 
 ## Roolivalinta prototyypissä
 
@@ -18,12 +19,25 @@ roolin, jolla haluaa kokeilla järjestelmää. Valittu rooli tallennetaan
 | `kilpailija` | Kilpailijan ilmoittautuminen ja tulokset |
 | `katsoja` | Kilpailukalenterin selaus ilman kirjautumista |
 
+## Uutisointi prototyypissä
+
+- `admin` voi luoda, muokata ja poistaa admin-uutisia
+- `liitto` voi luoda, muokata ja poistaa liitto-uutisia
+- muut roolit näkevät uutisia vain, jos ne on kohdennettu heille
+- uutinen tarvitsee otsikon ja sisällön
+- uutinen avautuu omalle näkymälleen ja siitä voi palata takaisin listaan
+- uutisia voi tykätä ja tykkäysmäärä näytetään käyttöliittymässä
+
+Koska prototyyppi toimii ilman tietokantaa, uutiset ja tykkäykset tallennetaan
+selaimen `localStorage`-muistiin. Valittu rooli tallennetaan edelleen
+`sessionStorage`-muistiin.
+
 ## Tekninen rakenne
 
 ```
-index.html   – Etusivu (roolivalinta)
-style.css    – Perustyylit
-app.js       – Roolivalintalogiikka
+index.html   – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uutislomake)
+style.css    – Perustyylit ja uutisnäkymien ulkoasu
+app.js       – Roolivalinta, uutislogiikka, näkyvyys ja tykkäykset
 ```
 
 ## Kehityssuunnitelma
