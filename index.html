@@ -4,18 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kilpailukalenteri – Prototyyppi</title>
-  <meta name="description" content="Kilpailukalenterijärjestelmän prototyyppi. Valitse rooli ja tutustu tulevaan järjestelmään." />
+  <meta
+    name="description"
+    content="Kilpailukalenterijärjestelmän prototyyppi. Valitse rooli ja tutustu admin- ja liitto-uutisiin."
+  />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <!-- ── Header ── -->
   <header>
-    <span class="badge">Prototyyppi v0.1</span>
+    <span class="badge">Prototyyppi v0.2</span>
     <h1>🏆 Kilpailukalenteri</h1>
     <p>
       Kilpailukalenterijärjestelmän prototyyppi. Valitse alla olevalta listalta,
       millä roolilla haluat kokeilla järjestelmää – kirjautumista ei tarvita.
+      Roolin perusteella näet eri uutisosiot ja niiden käyttöoikeudet.
     </p>
   </header>
 
@@ -42,22 +46,113 @@
       <div id="role-grid" class="role-grid" role="group" aria-label="Käyttäjäroolit"></div>
     </section>
 
+    <section class="news-overview" aria-labelledby="news-overview-heading">
+      <div class="news-overview__header">
+        <div>
+          <h2 class="section-title" id="news-overview-heading">
+            Uutisointi <span>– admin- ja liitto-osiot samalla sivulla</span>
+          </h2>
+          <p class="section-copy">
+            Uutiset avautuvat omalle näkymälleen ja järjestyvät julkaisuajan mukaan,
+            uusin ensin.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="news-editor" class="news-editor hidden" aria-labelledby="news-editor-heading">
+      <div class="panel-header">
+        <div>
+          <h2 class="section-title" id="news-editor-heading">Lisää uutinen</h2>
+          <p class="section-copy">Täytä otsikko, sisältö ja valitse roolit, joille uutinen näkyy.</p>
+        </div>
+        <button type="button" id="cancel-news-button" class="secondary-button">Peruuta</button>
+      </div>
+
+      <form id="news-form" class="news-form">
+        <input type="hidden" id="news-id" name="newsId" />
+        <input type="hidden" id="news-section" name="newsSection" />
+
+        <label class="form-field" for="news-title">
+          <span>Otsikko</span>
+          <input type="text" id="news-title" name="title" maxlength="120" required />
+        </label>
+
+        <label class="form-field" for="news-content">
+          <span>Sisältö</span>
+          <textarea id="news-content" name="content" rows="7" required></textarea>
+        </label>
+
+        <fieldset class="form-field">
+          <legend>Näkyy rooleille</legend>
+          <div id="visible-roles-options" class="checkbox-grid"></div>
+          <p class="form-hint">
+            Oman osion ylläpitäjä näkee aina oman roolinsa uutiset, vaikka muita rooleja
+            ei valittaisi.
+          </p>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" id="save-news-button" class="primary-button">Julkaise uutinen</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="news-lists-view" class="news-layout" aria-label="Uutisosastot">
+      <section class="news-section" aria-labelledby="admin-news-heading">
+        <div class="panel-header">
+          <div>
+            <h2 class="section-title" id="admin-news-heading">Admin-uutiset</h2>
+            <p class="section-copy">Admin-osioon kuuluvat tiedotteet ja hallinnolliset päivitykset.</p>
+          </div>
+          <button
+            type="button"
+            id="add-admin-news-button"
+            class="primary-button"
+            hidden
+          >
+            Lisää admin uutinen
+          </button>
+        </div>
+        <div id="admin-news-list" class="news-list" aria-live="polite"></div>
+      </section>
+
+      <section class="news-section" aria-labelledby="liitto-news-heading">
+        <div class="panel-header">
+          <div>
+            <h2 class="section-title" id="liitto-news-heading">Liitto-uutiset</h2>
+            <p class="section-copy">Liitto-osioon kuuluvat päätökset, tiedotteet ja kilpailuohjeet.</p>
+          </div>
+          <button
+            type="button"
+            id="add-liitto-news-button"
+            class="primary-button"
+            hidden
+          >
+            Lisää liitto uutinen
+          </button>
+        </div>
+        <div id="liitto-news-list" class="news-list" aria-live="polite"></div>
+      </section>
+    </section>
+
+    <section id="news-detail-view" class="news-detail hidden" aria-live="polite"></section>
+
     <!-- Tietoa tulevasta kehityksestä -->
     <aside class="info-box" aria-label="Tietoa prototyypistä">
       <span class="info-icon" aria-hidden="true">ℹ️</span>
       <div class="info-content">
-        <h3>Roolikohtaiset toiminnallisuudet tulossa</h3>
+        <h3>Roolikohtaiset toiminnallisuudet kasvavat vaiheittain</h3>
         <p>
-          Tässä prototyypissä voit valita roolin ilman kirjautumista.
-          Seuraavissa vaiheissa roolin perusteella näytetään eri
-          toiminnallisuuksia ja näkymiä, esimerkiksi:
+          Tässä prototyypissä uutiset tallentuvat selaimeen ilman tietokantaa.
+          Roolin valinta vaikuttaa näkyvyyteen, muokkausoikeuksiin ja
+          tykkäystoimintoihin.
         </p>
         <ul>
-          <li><strong>Admin</strong> – käyttäjien ja järjestelmän hallinta</li>
-          <li><strong>Liitto</strong> – kilpailukalenterin hyväksyminen ja valvonta</li>
-          <li><strong>Kilpailujohtaja</strong> – kilpailun luominen ja hallinta</li>
-          <li><strong>Kilpailija</strong> – ilmoittautuminen ja omat tulokset</li>
-          <li><strong>Katsoja</strong> – julkinen kalenteri ja tuloslistat</li>
+          <li><strong>Admin</strong> – lisää, muokkaa ja poistaa admin-uutisia</li>
+          <li><strong>Liitto</strong> – lisää, muokkaa ja poistaa liitto-uutisia</li>
+          <li><strong>Muut roolit</strong> – näkevät vain heille kohdennetut uutiset</li>
+          <li><strong>Kaikki näkyvät uutiset</strong> – voidaan avata omaan näkymään ja niitä voi tykätä</li>
         </ul>
       </div>
     </aside>
