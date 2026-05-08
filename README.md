@@ -5,8 +5,8 @@ roolivalintaan sekä admin- ja liitto-uutisointiin.
 
 ## Roolivalinta prototyypissä
 
-Sivulle **ei tarvita tietokantaa eikä kirjautumista**. Testaaja valitsee etusivulta
-roolin, jolla haluaa kokeilla järjestelmää. Valittu rooli tallennetaan
+Sivulle **ei tarvita kirjautumista**. Testaaja valitsee etusivulta roolin, jolla
+haluaa kokeilla järjestelmää. Valittu rooli tallennetaan
 `sessionStorage`-muistiin ja näkyy selkeästi käyttöliittymässä.
 
 ### Käyttäjäroolit
@@ -28,16 +28,21 @@ roolin, jolla haluaa kokeilla järjestelmää. Valittu rooli tallennetaan
 - uutinen avautuu omalle näkymälleen ja siitä voi palata takaisin listaan
 - uutisia voi tykätä ja tykkäysmäärä näytetään käyttöliittymässä
 
-Koska prototyyppi toimii ilman tietokantaa, uutiset ja tykkäykset tallennetaan
-selaimen `localStorage`-muistiin. Valittu rooli tallennetaan edelleen
-`sessionStorage`-muistiin.
+Uutiset tallennetaan ja haetaan PHP-API:n kautta MySQL-tietokannasta.
+Tykkäysten roolikohtainen tila on toistaiseksi frontendissä `localStorage`ssa
+(väliaikainen ratkaisu), mutta tykkäysmäärä tallennetaan uutisen mukana API:n
+kautta.
 
 ## Tekninen rakenne
 
 ```
-index.html   – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uutislomake)
-style.css    – Perustyylit ja uutisnäkymien ulkoasu
-app.js       – Roolivalinta, uutislogiikka, näkyvyys ja tykkäykset
+index.html           – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uutislomake)
+style.css            – Perustyylit ja uutisnäkymien ulkoasu
+app.js               – Roolivalinta, uutislogiikka, näkyvyys ja tykkäykset
+api/db.php           – Lukee DB-konfiguraation ja avaa PDO-yhteyden
+api/news.php         – Uutis-API (GET, POST, DELETE)
+schema.sql           – MySQL-skeema `news`-taululle
+config/db.example.php – Esimerkkipohja tietokanta-asetuksille
 ```
 
 ## Kehityssuunnitelma
@@ -45,7 +50,44 @@ app.js       – Roolivalinta, uutislogiikka, näkyvyys ja tykkäykset
 Seuraavissa vaiheissa roolin perusteella näytetään roolikohtaiset
 toiminnallisuudet ja näkymät (kilpailukalenteri, ilmoittautuminen, hallinta jne.).
 
-## Käynnistys
+## Käynnistys ja vaatimukset
+
+Projekti tarvitsee:
+
+- PHP (API-tiedostojen suorittamiseen)
+- MySQL/MariaDB
+- selain frontendille
+
+### 1) Luo tietokantaskeema
+
+Aja `schema.sql` MySQL:ään:
+
+```bash
+mysql -u USER -p DATABASE_NAME < schema.sql
+```
+
+### 2) Luo suojattu tietokantakonfiguraatio palvelimelle
+
+Luo tiedosto polkuun:
+
+`/home/rikman/config/db.php`
+
+Tiedoston muoto:
+
+```php
+<?php
+return [
+    'host' => 'localhost',
+    'dbname' => 'YOUR_DATABASE_NAME',
+    'username' => 'YOUR_DATABASE_USER',
+    'password' => 'YOUR_DATABASE_PASSWORD',
+];
+```
+
+Sama rakenne löytyy myös esimerkkinä tiedostosta `config/db.example.php`.
+Älä tallenna oikeita tunnuksia repositoryyn.
+
+### 3) Käynnistä projekti
 
 Avaa `index.html` selaimessa tai käytä paikallista HTTP-palvelinta:
 
