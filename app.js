@@ -64,6 +64,39 @@ const NEWS_API_URL = 'api/news.php';
 const DB_TEST_API_URL = 'api/db-test.php';
 const COMPETITION_CLASS_FILTER_STORAGE_KEY = 'kalenteriCompetitionClassFilter';
 const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
+
+/**
+ * PDGA-tasojen visuaalinen määrittely: väri, ikoni ja näyttönimi.
+ * Avain on pienillä kirjaimilla normalisoitu tieto.
+ */
+const PDGA_TIER_MAP = {
+  major:  { color: '#92400e', icon: '◆', label: 'Major' },
+  nt:     { color: '#1e3a8a', icon: '★', label: 'NT' },
+  es:     { color: '#6d28d9', icon: '▲', label: 'ES' },
+  'a-tier': { color: '#1a56db', icon: '●', label: 'A-tier' },
+  'b-tier': { color: '#047857', icon: '■', label: 'B-tier' },
+  'c-tier': { color: '#b45309', icon: '▬', label: 'C-tier' },
+  xc:     { color: '#6b7280', icon: '–',  label: 'XC' },
+};
+
+/** Palauttaa PDGA-tason visuaalisen tiedon tai oletuksen tuntemattomille tasoille. */
+function getPdgaTierStyle(tier) {
+  const key = (tier || '').trim().toLowerCase();
+  return PDGA_TIER_MAP[key] || { color: '#1a56db', icon: '●', label: tier || '' };
+}
+
+/** Palauttaa PDGA-tason badge-HTML:n. */
+function pdgaTierBadgeHtml(tier) {
+  if (!tier) return '';
+  const { color, icon, label } = getPdgaTierStyle(tier);
+  // Sallitaan vain turvallinen hex-värimuoto inline-tyylissä.
+  const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : '#1a56db';
+  return `<span class="pdga-tier-badge" style="--tier-color:${safeColor}" aria-label="PDGA-taso: ${escapeHtml(label)}">`
+    + `<span class="pdga-tier-badge__icon" aria-hidden="true">${icon}</span>`
+    + `<span class="pdga-tier-badge__label">${escapeHtml(label)}</span>`
+    + `</span>`;
+}
+
 let cachedNewsItems = [];
 const competitionCalendarState = {
   calendar: null,
@@ -1002,7 +1035,11 @@ async function fetchCompetitionsFromApi() {
     return [];
   }
 
-  return parsed;
+  return parsed.map((event) => {
+    const tier = event?.extendedProps?.pdgatier;
+    const { color } = getPdgaTierStyle(tier);
+    return { ...event, color };
+  });
 }
 
 /** Näyttää kilpailun tiedot modalissa. */
@@ -1033,7 +1070,10 @@ function openCompetitionModal(eventInfo) {
       ${row('Kilpailutyyppi', p.haettavakilpailu)}
       ${row('Paikkakunta', p.paikkakunta)}
       ${row('Rata', p.rata)}
-      ${row('PDGA-taso', p.pdgatier)}
+      ${p.pdgatier ? `<div class="comp-detail-row">
+        <span class="comp-detail-label">PDGA-taso</span>
+        <span class="comp-detail-value">${pdgaTierBadgeHtml(p.pdgatier)}</span>
+      </div>` : ''}
       ${row('Kilpailuluokat', p.kilpailuluokat)}
       ${divisions ? row('Luokat', divisions) : ''}
       ${row('Järjestäjä', p.jarjestaja)}
@@ -1113,7 +1153,6 @@ async function initCompetitionCalendar() {
     events(info, successCallback) {
       successCallback(getFilteredCompetitionEvents());
     },
-    eventColor: '#1a56db',
     eventTextColor: '#ffffff',
     eventDisplay: 'block',
     displayEventTime: false,
