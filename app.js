@@ -62,7 +62,15 @@ const SECTION_CONFIG = {
 const NEWS_LIKES_STORAGE_KEY = 'kalenteriNewsLikes';
 const NEWS_API_URL = 'api/news.php';
 const DB_TEST_API_URL = 'api/db-test.php';
+const COMPETITION_CLASS_FILTER_STORAGE_KEY = 'kalenteriCompetitionClassFilter';
+const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
 let cachedNewsItems = [];
+const competitionCalendarState = {
+  calendar: null,
+  events: [],
+  availableDivisions: [],
+  lastFilterKey: '',
+};
 
 /** Palauttaa tällä hetkellä valitun roolin sessionStoragesta. */
 function getSelectedRole() {
@@ -214,6 +222,22 @@ function loadNewsLikes() {
 /** Tallentaa tykkäystiedot localStorageen. */
 function saveNewsLikes(likesByRole) {
   localStorage.setItem(NEWS_LIKES_STORAGE_KEY, JSON.stringify(likesByRole));
+}
+
+/** Lukee kilpailukalenterin luokkasuodattimen sessionStoragesta. */
+function loadCompetitionClassFilter() {
+  try {
+    const rawValue = sessionStorage.getItem(COMPETITION_CLASS_FILTER_STORAGE_KEY);
+    const parsed = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+/** Tallentaa kilpailukalenterin luokkasuodattimen sessionStorageen. */
+function saveCompetitionClassFilter(selectedDivisions) {
+  sessionStorage.setItem(COMPETITION_CLASS_FILTER_STORAGE_KEY, JSON.stringify(selectedDivisions));
 }
 
 /** Normalisoi yksittäisen uutisolion turvalliseen muotoon. */
@@ -742,6 +766,7 @@ function renderApp() {
   renderRoleSelection();
   renderNewsLists();
   renderNewsDetail();
+  renderCompetitionCalendarFilter();
 }
 
 /** Alustaa staattiset kuuntelijat. */
@@ -781,6 +806,164 @@ document.addEventListener('DOMContentLoaded', async () => {
    ============================================================ */
 
 const COMPETITIONS_API_URL = 'api/competitions.php';
+
+/** Palauttaa kilpailukalenterin saatavilla olevat luokat vakaassa järjestyksessä. */
+function getAvailableCompetitionDivisions(events) {
+  const divisionSet = new Set();
+
+  events.forEach((eventItem) => {
+    const divisions = Array.isArray(eventItem?.extendedProps?.divisions) ? eventItem.extendedProps.divisions : [];
+    divisions.forEach((division) => {
+      if (typeof division === 'string' && division) {
+        divisionSet.add(division);
+      }
+    });
+  });
+
+  return [...divisionSet].sort((left, right) => {
+    const leftIndex = COMPETITION_DIVISION_ORDER.indexOf(left);
+    const rightIndex = COMPETITION_DIVISION_ORDER.indexOf(right);
+
+    if (leftIndex === -1 && rightIndex === -1) {
+      return left.localeCompare(right, 'fi');
+    }
+    if (leftIndex === -1) {
+      return 1;
+    }
+    if (rightIndex === -1) {
+      return -1;
+    }
+    return leftIndex - rightIndex;
+  });
+}
+
+/** Suodattaa tallennetut luokat vain saatavilla oleviin arvoihin. */
+function sanitizeCompetitionClassFilter(selectedDivisions, availableDivisions) {
+  const selectedSet = new Set(
+    selectedDivisions.filter((division) => typeof division === 'string'),
+  );
+
+  return availableDivisions.filter((division) => selectedSet.has(division));
+}
+
+/** Palauttaa aktiivisen kilpailukalenterin luokkasuodattimen. */
+function getCompetitionClassFilterSelection() {
+  return sanitizeCompetitionClassFilter(loadCompetitionClassFilter(), competitionCalendarState.availableDivisions);
+}
+
+/** Palauttaa roolikohtaisesti suodatetut kilpailut. */
+function getFilteredCompetitionEvents() {
+  const selectedRole = getSelectedRole();
+  const selectedDivisions = getCompetitionClassFilterSelection();
+
+  if (selectedRole !== 'kilpailija' || selectedDivisions.length === 0) {
+    return competitionCalendarState.events;
+  }
+
+  const selectedDivisionSet = new Set(selectedDivisions);
+
+  return competitionCalendarState.events.filter((eventItem) => {
+    const divisions = Array.isArray(eventItem?.extendedProps?.divisions) ? eventItem.extendedProps.divisions : [];
+    return divisions.some((division) => selectedDivisionSet.has(division));
+  });
+}
+
+/** Asettaa kilpailukalenterin luokkasuodattimen ja päivittää näkymän. */
+function setCompetitionClassFilter(selectedDivisions) {
+  const sanitized = sanitizeCompetitionClassFilter(selectedDivisions, competitionCalendarState.availableDivisions);
+  saveCompetitionClassFilter(sanitized);
+  renderCompetitionCalendarFilter();
+}
+
+/** Luo yhden luokkasuodattimen valintapainikkeen. */
+function buildCompetitionFilterChip(label, isActive, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'competition-filter-chip';
+  button.textContent = label;
+  button.setAttribute('aria-pressed', String(isActive));
+  button.classList.toggle('is-active', isActive);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+/** Piirtää kilpailukalenterin luokkasuodattimen valitulle roolille. */
+function renderCompetitionCalendarFilter() {
+  const filterContainer = document.getElementById('competition-calendar-filters');
+  const filterOptions = document.getElementById('competition-calendar-filter-options');
+  const filterSummary = document.getElementById('competition-calendar-filter-summary');
+  const statusEl = document.getElementById('competition-calendar-status');
+
+  if (!filterContainer || !filterOptions || !filterSummary || !statusEl) {
+    return;
+  }
+
+  const selectedRole = getSelectedRole();
+  const isCompetitorView = selectedRole === 'kilpailija';
+  const availableDivisions = competitionCalendarState.availableDivisions;
+  const selectedDivisions = getCompetitionClassFilterSelection();
+
+  filterContainer.hidden = !isCompetitorView;
+  filterOptions.innerHTML = '';
+
+  if (!isCompetitorView) {
+    filterSummary.textContent = '';
+  } else if (!availableDivisions.length) {
+    filterSummary.textContent = 'Luokkasuodatin tulee näkyviin, kun kilpailuille on saatavilla luokkatiedot.';
+  } else {
+    filterSummary.textContent = selectedDivisions.length > 0
+      ? `Näytetään luokat: ${selectedDivisions.join(', ')}.`
+      : 'Näytetään kaikki luokat.';
+
+    filterOptions.appendChild(buildCompetitionFilterChip('Kaikki luokat', selectedDivisions.length === 0, () => {
+      setCompetitionClassFilter([]);
+    }));
+
+    availableDivisions.forEach((division) => {
+      const isActive = selectedDivisions.includes(division);
+      filterOptions.appendChild(buildCompetitionFilterChip(division, isActive, () => {
+        const nextSelection = new Set(getCompetitionClassFilterSelection());
+
+        if (nextSelection.has(division)) {
+          nextSelection.delete(division);
+        } else {
+          nextSelection.add(division);
+        }
+
+        setCompetitionClassFilter([...nextSelection]);
+      }));
+    });
+  }
+
+  if (!competitionCalendarState.calendar) {
+    return;
+  }
+
+  const filteredEvents = getFilteredCompetitionEvents();
+  const nextFilterKey = JSON.stringify({
+    role: selectedRole,
+    selectedDivisions,
+  });
+
+  if (competitionCalendarState.lastFilterKey !== nextFilterKey) {
+    competitionCalendarState.lastFilterKey = nextFilterKey;
+    competitionCalendarState.calendar.refetchEvents();
+  }
+
+  if (competitionCalendarState.events.length === 0) {
+    statusEl.textContent = 'Kilpailuja ei löytynyt.';
+    statusEl.hidden = false;
+    return;
+  }
+
+  if (isCompetitorView && selectedDivisions.length > 0 && filteredEvents.length === 0) {
+    statusEl.textContent = 'Valituilla luokilla ei löytynyt kilpailuja.';
+    statusEl.hidden = false;
+    return;
+  }
+
+  statusEl.hidden = true;
+}
 
 /**
  * Muotoilee päivämäärän tai välin suomeksi.
@@ -908,6 +1091,10 @@ async function initCompetitionCalendar() {
     statusEl.hidden = false;
   }
 
+  competitionCalendarState.events = events;
+  competitionCalendarState.availableDivisions = getAvailableCompetitionDivisions(events);
+  saveCompetitionClassFilter(getCompetitionClassFilterSelection());
+
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'fi',
@@ -923,7 +1110,9 @@ async function initCompetitionCalendar() {
       week: 'Viikko',
       list: 'Lista',
     },
-    events,
+    events(info, successCallback) {
+      successCallback(getFilteredCompetitionEvents());
+    },
     eventColor: '#1a56db',
     eventTextColor: '#ffffff',
     eventDisplay: 'block',
@@ -944,7 +1133,9 @@ async function initCompetitionCalendar() {
     },
   });
 
+  competitionCalendarState.calendar = calendar;
   calendar.render();
+  renderCompetitionCalendarFilter();
 
   // Modalin sulkeminen
   document.getElementById('competition-modal-close').addEventListener('click', closeCompetitionModal);
