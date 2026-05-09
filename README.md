@@ -38,8 +38,8 @@ kautta.
 
 ```
 index.html           – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uutislomake)
-style.css            – Perustyylit ja uutisnäkymien ulkoasu
-app.js               – Roolivalinta, uutislogiikka, näkyvyys ja tykkäykset
+style.css            – Perustyylit, uutisnäkymien ulkoasu ja kalenterifiltterin tyylit
+app.js               – Roolivalinta, uutislogiikka, näkyvyys, tykkäykset ja kilpailukalenterin luokkasuodatin
 api/db.php           – Lukee DB-konfiguraation ja avaa PDO-yhteyden
 api/db-test.php      – Admin-tietokantatestin endpoint (palauttaa JSON-vastauksen)
 api/news.php         – Uutis-API (GET, POST, DELETE)
@@ -51,6 +51,10 @@ config/db.example.php – Esimerkkipohja tietokanta-asetuksille
 
 Seuraavissa vaiheissa roolin perusteella näytetään roolikohtaiset
 toiminnallisuudet ja näkymät (kilpailukalenteri, ilmoittautuminen, hallinta jne.).
+
+Nykyisessä prototyypissä `kilpailija`-rooli voi rajata kilpailukalenterin näkymää
+luokkien perusteella. Valinta tallennetaan selaimen `sessionStorage`en samalla
+tapaa kuin roolivalinta.
 
 ## Käynnistys ja vaatimukset
 
