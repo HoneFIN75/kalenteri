@@ -73,6 +73,7 @@ const MAP_COORDINATE_KEY_PRECISION = 4;
 const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
 const MAP_OVERLAP_OFFSET_ANGLE_STEP = 1.2;
 const MAP_FIT_BOUNDS_MAX_ZOOM = 9;
+const MAP_TILE_SERVER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MUNICIPALITY_COORDINATES = {
   helsinki: [60.1699, 24.9384],
   espoo: [60.2055, 24.6559],
@@ -114,15 +115,17 @@ const MUNICIPALITY_COORDINATES = {
   nakkila: [61.3663, 22.0045],
   ylivieska: [64.0736, 24.5458],
   imatra: [61.1719, 28.77],
-  mariehamn: [60.0973, 19.9348],
   maarianhamina: [60.0973, 19.9348],
   ahvenanmaa: [60.1785, 20.0],
-  aland: [60.1785, 20.0],
   jomala: [60.1525, 19.9494],
   lemland: [60.07, 20.08],
   finstrom: [60.23, 19.9],
   sund: [60.24, 20.1],
   saltvik: [60.28, 20.07],
+};
+const MUNICIPALITY_ALIASES = {
+  mariehamn: 'maarianhamina',
+  aland: 'ahvenanmaa',
 };
 
 /**
@@ -1504,13 +1507,19 @@ function getMunicipalityCandidates(rawValue) {
     .filter(Boolean);
 }
 
+/** Luo vakioavaimen koordinaattien ryhmittelyyn markerien limityksen estossa. */
+function createCoordinateKey(coordinates) {
+  return `${coordinates[0].toFixed(MAP_COORDINATE_KEY_PRECISION)},${coordinates[1].toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
+}
+
 /** Palauttaa paikkakunnalle koordinaatit tai null, jos niitä ei löydy. */
 function resolveCompetitionCoordinates(paikkakunta) {
   const candidates = getMunicipalityCandidates(paikkakunta);
   for (const candidate of candidates) {
     const key = candidate.replace(/\s+/g, '');
-    if (MUNICIPALITY_COORDINATES[key]) {
-      return MUNICIPALITY_COORDINATES[key];
+    const aliasKey = MUNICIPALITY_ALIASES[key] || MUNICIPALITY_ALIASES[candidate] || key;
+    if (MUNICIPALITY_COORDINATES[aliasKey]) {
+      return MUNICIPALITY_COORDINATES[aliasKey];
     }
     if (MUNICIPALITY_COORDINATES[candidate]) {
       return MUNICIPALITY_COORDINATES[candidate];
@@ -1567,7 +1576,7 @@ function updateCompetitionMap() {
       return;
     }
 
-    const key = `${coords[0].toFixed(MAP_COORDINATE_KEY_PRECISION)},${coords[1].toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
+    const key = createCoordinateKey(coords);
     const usageCount = coordinateUsageCount.get(key) || 0;
     coordinateUsageCount.set(key, usageCount + 1);
 
@@ -1614,7 +1623,7 @@ function initCompetitionMap() {
     maxBoundsViscosity: 0.8,
   });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer(MAP_TILE_SERVER_URL, {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
 
