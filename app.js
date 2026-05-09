@@ -71,8 +71,9 @@ const DEFAULT_FINLAND_CENTER_COORDINATES = [64.5, 26.0];
 const FINLAND_BOUNDS = [[59.2, 18.5], [70.5, 32.5]];
 const MAP_COORDINATE_KEY_PRECISION = 4;
 const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
-const MAP_OVERLAP_OFFSET_ANGLE_STEP = 1.2;
+const MAP_OVERLAP_OFFSET_ANGLE_STEP_RADIANS = 1.2;
 const MAP_FIT_BOUNDS_MAX_ZOOM = 9;
+const MAP_SINGLE_MARKER_ZOOM = 6;
 const MAP_TILE_SERVER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MUNICIPALITY_COORDINATES = {
   helsinki: [60.1699, 24.9384],
@@ -1517,7 +1518,7 @@ function resolveCompetitionCoordinates(paikkakunta) {
   const candidates = getMunicipalityCandidates(paikkakunta);
   for (const candidate of candidates) {
     const key = candidate.replace(/\s+/g, '');
-    const aliasKey = MUNICIPALITY_ALIASES[key] || MUNICIPALITY_ALIASES[candidate] || key;
+    const aliasKey = MUNICIPALITY_ALIASES[key] || key;
     if (MUNICIPALITY_COORDINATES[aliasKey]) {
       return MUNICIPALITY_COORDINATES[aliasKey];
     }
@@ -1581,7 +1582,7 @@ function updateCompetitionMap() {
     coordinateUsageCount.set(key, usageCount + 1);
 
     const hasOverlap = usageCount > 0;
-    const angle = usageCount * MAP_OVERLAP_OFFSET_ANGLE_STEP;
+    const angle = usageCount * MAP_OVERLAP_OFFSET_ANGLE_STEP_RADIANS;
     const lat = coords[0] + (hasOverlap ? Math.sin(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
     const lng = coords[1] + (hasOverlap ? Math.cos(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
     const marker = L.marker([lat, lng], {
@@ -1598,7 +1599,12 @@ function updateCompetitionMap() {
     markerCoordinates.push([lat, lng]);
   });
 
-  if (markerCoordinates.length > 0) {
+  if (markerCoordinates.length === 1) {
+    competitionCalendarState.map.setView(markerCoordinates[0], MAP_SINGLE_MARKER_ZOOM);
+    return;
+  }
+
+  if (markerCoordinates.length > 1) {
     competitionCalendarState.map.fitBounds(markerCoordinates, {
       padding: [24, 24],
       maxZoom: MAP_FIT_BOUNDS_MAX_ZOOM,
