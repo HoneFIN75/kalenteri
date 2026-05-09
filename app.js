@@ -773,4 +773,185 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Jos haku epäonnistuu, näytetään tyhjä listaus.
   }
   renderApp();
+  initCompetitionCalendar();
 });
+
+/* ============================================================
+   Kilpailukalenteri – FullCalendar-integraatio
+   ============================================================ */
+
+const COMPETITIONS_API_URL = 'api/competitions.php';
+
+/**
+ * Muotoilee päivämäärän tai välin suomeksi.
+ * @param {string} startYmd - YYYY-MM-DD
+ * @param {string} endYmd   - YYYY-MM-DD (FullCalendarin eksklusiiviinen end)
+ */
+function formatCompetitionDateRange(startYmd, endYmd) {
+  const start = new Date(startYmd);
+  // FullCalendar end on eksklusiiviinen → vähennetään yksi päivä
+  const end = new Date(endYmd);
+  end.setDate(end.getDate() - 1);
+
+  const opts = { day: 'numeric', month: 'numeric', year: 'numeric' };
+  const locale = 'fi-FI';
+
+  if (start.toDateString() === end.toDateString()) {
+    return start.toLocaleDateString(locale, opts);
+  }
+
+  return `${start.toLocaleDateString(locale, opts)} – ${end.toLocaleDateString(locale, opts)}`;
+}
+
+/** Hakee kilpailut API:sta. */
+async function fetchCompetitionsFromApi() {
+  const response = await fetch(COMPETITIONS_API_URL, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error('Kilpailujen haku epäonnistui.');
+  }
+
+  const parsed = await response.json();
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed;
+}
+
+/** Näyttää kilpailun tiedot modalissa. */
+function openCompetitionModal(eventInfo) {
+  const modal = document.getElementById('competition-modal');
+  const content = document.getElementById('competition-modal-content');
+  const { title, startStr, endStr, extendedProps: p } = eventInfo.event;
+
+  const dateRange = formatCompetitionDateRange(startStr, endStr);
+
+  const divisions = Array.isArray(p.divisions) && p.divisions.length > 0
+    ? p.divisions.join(', ')
+    : '';
+
+  /** @param {string} label @param {string} value */
+  function row(label, value) {
+    if (!value) return '';
+    return `<div class="comp-detail-row">
+      <span class="comp-detail-label">${label}</span>
+      <span class="comp-detail-value">${escapeHtml(value)}</span>
+    </div>`;
+  }
+
+  content.innerHTML = `
+    <h2 class="comp-detail-title" id="competition-modal-title">${escapeHtml(title)}</h2>
+    <div class="comp-detail-grid">
+      ${row('Ajankohta', dateRange)}
+      ${row('Kilpailutyyppi', p.haettavakilpailu)}
+      ${row('Paikkakunta', p.paikkakunta)}
+      ${row('Rata', p.rata)}
+      ${row('PDGA-taso', p.pdgatier)}
+      ${row('Kilpailuluokat', p.kilpailuluokat)}
+      ${divisions ? row('Luokat', divisions) : ''}
+      ${row('Järjestäjä', p.jarjestaja)}
+      ${row('Max pelaajamäärä', p.maxpelaajamaara)}
+      ${row('Väylien määrä / pk', p.vaylienmaarapk)}
+      ${row('Kierrosten määrä', p.kierrostenmaara)}
+      ${row('Kilpailunjohtaja', p.kilpailunjohtaja)}
+      ${row('Kilpailunjohtaja PDGA', p.kilpailunjohtajapdga)}
+      ${row('Apukilpailunjohtaja', p.apukilpailunjohtaja)}
+      ${row('Apukilpailunjohtaja PDGA', p.apukilpailunjohtajapdga)}
+    </div>
+  `;
+
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  document.getElementById('competition-modal-close').focus();
+}
+
+/** Sulkee kilpailumodaali. */
+function closeCompetitionModal() {
+  const modal = document.getElementById('competition-modal');
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
+/** Pakenee HTML-erikoismerkit. */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Alustaa FullCalendar-kilpailukalenterin. */
+async function initCompetitionCalendar() {
+  const calendarEl = document.getElementById('competition-calendar');
+  const statusEl = document.getElementById('competition-calendar-status');
+
+  if (!calendarEl) return;
+
+  let events = [];
+
+  try {
+    events = await fetchCompetitionsFromApi();
+  } catch (error) {
+    statusEl.textContent = 'Kilpailukalenterin lataus epäonnistui. Tarkista verkko ja yritä uudelleen.';
+    statusEl.hidden = false;
+    return;
+  }
+
+  if (events.length === 0) {
+    statusEl.textContent = 'Kilpailuja ei löytynyt.';
+    statusEl.hidden = false;
+  }
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'fi',
+    firstDay: 1,
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,listYear',
+    },
+    buttonText: {
+      today: 'Tänään',
+      month: 'Kuukausi',
+      week: 'Viikko',
+      list: 'Lista',
+    },
+    events,
+    eventColor: '#1a56db',
+    eventTextColor: '#ffffff',
+    eventDisplay: 'block',
+    displayEventTime: false,
+    eventClick(info) {
+      info.jsEvent.preventDefault();
+      openCompetitionModal(info);
+    },
+    eventDidMount(info) {
+      info.el.setAttribute('title', info.event.title);
+    },
+    noEventsText: 'Ei kilpailuja tällä ajanjaksolla.',
+    views: {
+      listYear: {
+        buttonText: 'Lista',
+        noEventsText: 'Ei kilpailuja tällä ajanjaksolla.',
+      },
+    },
+  });
+
+  calendar.render();
+
+  // Modalin sulkeminen
+  document.getElementById('competition-modal-close').addEventListener('click', closeCompetitionModal);
+  document.querySelector('.competition-modal__backdrop').addEventListener('click', closeCompetitionModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeCompetitionModal();
+    }
+  });
+}
