@@ -52,27 +52,23 @@
       <div class="panel-header">
         <div>
           <h2 class="section-title" id="competition-calendar-heading">
-            Kilpailukalenteri <span>– tulevat kilpailut</span>
+            Kilpailukalenteri
           </h2>
           <p class="section-copy">
             Klikkaa kilpailua nähdäksesi lisätiedot. Vaihda näkymää oikean yläkulman painikkeilla.
           </p>
         </div>
       </div>
+      <div id="competition-calendar-legend" class="competition-legend" aria-label="PDGA-tasojen värit kilpailukalenterissa"></div>
       <div id="competition-calendar-filters" class="competition-filters" hidden>
         <div class="competition-filters__header">
           <div>
-            <h3 class="competition-filters__title">Suodata luokilla</h3>
-            <p class="competition-filters__copy">Kilpailija-roolissa voit rajata näkymän omaan luokkaasi tai useaan luokkaan.</p>
+            <h3 id="competition-calendar-filter-title" class="competition-filters__title">Suodata kilpailuja</h3>
+            <p id="competition-calendar-filter-copy" class="competition-filters__copy"></p>
           </div>
         </div>
         <p id="competition-calendar-filter-summary" class="competition-filters__summary"></p>
-        <div
-          id="competition-calendar-filter-options"
-          class="competition-filters__options"
-          role="group"
-          aria-label="Kilpailukalenterin luokkasuodatin"
-        ></div>
+        <div id="competition-calendar-filter-options" class="competition-filters__options"></div>
       </div>
       <div id="competition-calendar-status" class="competition-calendar-status" aria-live="polite" hidden></div>
       <div id="competition-calendar" class="competition-calendar-container"></div>
