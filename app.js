@@ -182,7 +182,6 @@ const FINLAND_MUNICIPALITY_COORDS = {
   'inkoo': [60.0500, 24.0000],
   'isojoki': [62.1167, 21.9667],
   'isokyrö': [62.9833, 22.3167],
-  'ivalo': [68.6556, 27.5433],
   'jalasjärvi': [62.5000, 22.7667],
   'janakkala': [60.9000, 24.6000],
   'joensuu': [62.6010, 29.7636],
@@ -239,7 +238,7 @@ const FINLAND_MUNICIPALITY_COORDS = {
   'konnevesi': [62.6269, 26.3388],
   'kontiolahti': [62.7490, 29.8444],
   'korsnäs': [62.8667, 21.2000],
-  'koskitl': [60.6167, 23.1500],
+  'koski tl': [60.6167, 23.1500],
   'kotka': [60.4664, 26.9458],
   'kouvola': [60.8686, 26.7042],
   'kristiinankaupunki': [62.2739, 21.3767],
@@ -307,8 +306,6 @@ const FINLAND_MUNICIPALITY_COORDS = {
   'nivala': [63.9227, 24.9737],
   'nokia': [61.4785, 23.5085],
   'nousiainen': [60.6135, 22.0837],
-  'nuijamaa': [61.0833, 28.5500],
-  'nummi-pusula': [60.3167, 23.8333],
   'nurmes': [63.5463, 29.1396],
   'nurmijärvi': [60.4680, 24.8073],
   'närpiö': [62.4761, 21.3314],
@@ -351,7 +348,6 @@ const FINLAND_MUNICIPALITY_COORDS = {
   'pyhäjärvi': [63.6667, 25.9500],
   'pyhäntä': [64.1058, 26.4244],
   'pyhäranta': [60.9667, 21.4500],
-  'päijät-häme': [61.0000, 26.0000],
   'pälkäne': [61.3352, 24.2621],
   'pöytyä': [60.7333, 22.8500],
   'raahe': [64.6851, 24.4820],
@@ -454,7 +450,7 @@ const FINLAND_MUNICIPALITY_COORDS = {
  */
 function getMunicipalityCoords(paikkakunta) {
   if (!paikkakunta) return null;
-  // Normalisoi: pienillä kirjaimilla, välit poistettu, pilkun jälkeinen osa poistetaan
+  // Normalisoi: pienillä kirjaimilla, pilkun tai vinoviivan jälkeinen osa poistetaan
   const raw = paikkakunta.toLowerCase().trim().split(/[,/]/)[0].trim();
 
   if (FINLAND_MUNICIPALITY_COORDS[raw]) return FINLAND_MUNICIPALITY_COORDS[raw];
@@ -481,7 +477,9 @@ function renderCompetitionMap() {
   const mapEl = document.getElementById('competition-map');
   if (!mapEl) return;
 
-  // Alustetaan Leaflet-kartta ensimmäisellä kerralla
+  // Alustetaan Leaflet-kartta ensimmäisellä kerralla.
+  // scrollWheelZoom on pois päältä, jotta sivun selaaminen ei vahingossa zoomaa karttaa.
+  // Zoomaus onnistuu kartan +/− -painikkeilla tai kaksoisnapauttamalla.
   if (!competitionCalendarState.mapInstance) {
     competitionCalendarState.mapInstance = L.map('competition-map', { scrollWheelZoom: false }).setView([64.5, 26.0], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
