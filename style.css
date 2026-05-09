@@ -806,6 +806,25 @@ body.modal-open {
   overflow: hidden;
 }
 
+/* ── PDGA-tason badge ── */
+.pdga-tier-badge {
+  align-items: center;
+  background: var(--tier-color, #1a56db);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 0.35em;
+  letter-spacing: 0.03em;
+  padding: 0.2em 0.7em;
+}
+
+.pdga-tier-badge__icon {
+  font-style: normal;
+  line-height: 1;
+}
+
 /* ── Responsive ── */
 @media (max-width: 500px) {
   .role-grid {
