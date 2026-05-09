@@ -3,6 +3,18 @@
 Kilpailukalenterijärjestelmän prototyyppi. Nykyinen versio keskittyy etusivun
 roolivalintaan sekä admin- ja liitto-uutisointiin.
 
+## Kilpailukalenteri – karttanäkymä
+
+Kilpailukalenterin oikeassa yläkulmassa on **Kartta**-painike. Karttanäkymä:
+
+- näyttää kilpailut paikkakuntansa mukaan Suomen ja Ahvenanmaan kartalla
+- päivittyy automaattisesti FullCalendarin aktiivisen aikavälin (kuukausi/viikko/lista) mukaan
+- kunnioittaa kaikkia aktiivisia suodattimia (luokat, PDGA-taso, järjestäjä jne.)
+- värittää markerit PDGA-tason mukaan (sama värikoodi kuin kalenterissa)
+- avaa kilpailun detaljimodalin markeria klikkaamalla
+- käyttää [Leaflet](https://leafletjs.com/) 1.9.4 -kirjastoa (CDN) ja OpenStreetMap-karttoja
+- Kartta-painike on aktiivinen (korostettu) karttanäkymän ollessa päällä; muut näkymäpainikkeet palauttavat kalenterinäkymän
+
 ## Roolivalinta prototyypissä
 
 Sivulle **ei tarvita kirjautumista**. Testaaja valitsee etusivulta roolin, jolla
@@ -37,9 +49,9 @@ kautta.
 ## Tekninen rakenne
 
 ```
-index.html           – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uutislomake)
-style.css            – Perustyylit, uutisnäkymien ulkoasu ja kalenterifiltterin tyylit
-app.js               – Roolivalinta, uutislogiikka, näkyvyys, tykkäykset ja kilpailukalenterin luokkasuodatin
+index.html           – Etusivu (roolivalinta, uutislistat, uutisnäkymä, uutislomake, karttakontaineri)
+style.css            – Perustyylit, uutisnäkymien ulkoasu ja kalenterifiltterin tyylit, karttanäkymän tyylit
+app.js               – Roolivalinta, uutislogiikka, näkyvyys, tykkäykset, kilpailukalenterin luokkasuodatin ja karttanäkymä
 api/db.php           – Lukee DB-konfiguraation ja avaa PDO-yhteyden
 api/db-test.php      – Admin-tietokantatestin endpoint (palauttaa JSON-vastauksen)
 api/news.php         – Uutis-API (GET, POST, DELETE)
@@ -55,6 +67,10 @@ toiminnallisuudet ja näkymät (kilpailukalenteri, ilmoittautuminen, hallinta jn
 Nykyisessä prototyypissä `kilpailija`-rooli voi rajata kilpailukalenterin näkymää
 luokkien perusteella. Valinta tallennetaan selaimen `sessionStorage`en samalla
 tapaa kuin roolivalinta.
+
+Kilpailukalenterissa on lista-/kalenterinäkymien lisäksi karttanäkymä, joka näyttää
+aktiivisen FullCalendar-näkymän (kuukausi, viikko tai lista) ja valittujen
+suodattimien mukaiset kilpailut paikkakunnittain Suomessa ja Ahvenanmaalla.
 
 ## Käynnistys ja vaatimukset
 

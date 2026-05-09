@@ -10,6 +10,8 @@
   />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
 </head>
 <body>
 
@@ -72,6 +74,12 @@
       </div>
       <div id="competition-calendar-status" class="competition-calendar-status" aria-live="polite" hidden></div>
       <div id="competition-calendar" class="competition-calendar-container"></div>
+      <section class="competition-map-panel" aria-labelledby="competition-map-heading">
+        <h3 id="competition-map-heading" class="competition-map-panel__title">Kilpailut kartalla</h3>
+        <p class="competition-map-panel__copy">Kartta näyttää näkyvän aikavälin kilpailut paikkakunnittain.</p>
+        <div id="competition-calendar-map" class="competition-map" role="img" aria-label="Kilpailujen karttanäkymä"></div>
+      </section>
+      <div id="competition-map" class="competition-map-container" hidden aria-label="Kilpailukartta"></div>
     </section>
 
     <!-- ── Kilpailun detaljimodal ── -->
@@ -189,7 +197,6 @@
       <div class="info-content">
         <h3>Roolikohtaiset toiminnallisuudet kasvavat vaiheittain</h3>
         <p>
-          Tässä prototyypissä uutiset tallentuvat selaimeen ilman tietokantaa.
           Roolin valinta vaikuttaa näkyvyyteen, muokkausoikeuksiin ja
           tykkäystoimintoihin.
         </p>
@@ -206,10 +213,12 @@
 
   <!-- ── Footer ── -->
   <footer>
-    <p>Kilpailukalenteri – Prototyyppi &copy; 2025 · Ei tietokantaa, ei kirjautumista</p>
+    <p>Kilpailukalenteri – Prototyyppi &copy; 2025 · Ei kirjautumista</p>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

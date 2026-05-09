@@ -67,6 +67,67 @@ const COMPETITION_PDGA_TIER_FILTER_STORAGE_KEY = 'kalenteriCompetitionPdgaTierFi
 const COMPETITION_ORGANIZER_FILTER_STORAGE_KEY = 'kalenteriCompetitionOrganizerFilter';
 const COMPETITION_TYPE_FILTER_STORAGE_KEY = 'kalenteriCompetitionTypeFilter';
 const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
+const FINLAND_CENTER_COORDINATES = [64.5, 26.0];
+const FINLAND_BOUNDS = [[59.2, 18.5], [70.5, 32.5]];
+const MAP_COORDINATE_KEY_PRECISION = 4;
+const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
+const MAP_OVERLAP_OFFSET_ANGLE_STEP_RADIANS = 1.2;
+const MAP_FIT_BOUNDS_MAX_ZOOM = 9;
+const MAP_SINGLE_MARKER_ZOOM = 6;
+const MAP_TILE_SERVER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const MUNICIPALITY_COORDINATES = {
+  helsinki: [60.1699, 24.9384],
+  espoo: [60.2055, 24.6559],
+  vantaa: [60.2934, 25.0378],
+  kauniainen: [60.2116, 24.7284],
+  turku: [60.4518, 22.2666],
+  tampere: [61.4981, 23.7608],
+  oulu: [65.0121, 25.4651],
+  jyvaskyla: [62.2426, 25.7473],
+  kuopio: [62.8924, 27.677],
+  lahti: [60.9827, 25.6615],
+  pori: [61.4851, 21.7974],
+  vaasa: [63.0951, 21.6165],
+  joensuu: [62.601, 29.7636],
+  lappeenranta: [61.0583, 28.1887],
+  raahe: [64.6839, 24.4817],
+  rovaniemi: [66.5039, 25.7294],
+  kajaani: [64.227, 27.7285],
+  kotka: [60.4674, 26.9458],
+  kouvola: [60.8679, 26.7042],
+  savonlinna: [61.868, 28.8862],
+  seinajoki: [62.7945, 22.8282],
+  harjavalta: [61.3168, 22.1373],
+  nokia: [61.4786, 23.5056],
+  hyvinkaa: [60.6337, 24.8631],
+  jarvenpaa: [60.4737, 25.0899],
+  kerava: [60.4034, 25.105],
+  lohja: [60.2487, 24.0657],
+  porvoo: [60.3932, 25.665],
+  salo: [60.3833, 23.1333],
+  raisio: [60.4869, 22.1683],
+  naantali: [60.4667, 22.0333],
+  rauma: [61.1308, 21.5111],
+  kankaanpaa: [61.8059, 22.3966],
+  mikkeli: [61.6886, 27.2723],
+  heinola: [61.203, 26.035],
+  hameenlinna: [60.9967, 24.4643],
+  riihimaki: [60.7378, 24.7773],
+  nakkila: [61.3663, 22.0045],
+  ylivieska: [64.0736, 24.5458],
+  imatra: [61.1719, 28.77],
+  maarianhamina: [60.0973, 19.9348],
+  ahvenanmaa: [60.1785, 20.0],
+  jomala: [60.1525, 19.9494],
+  lemland: [60.07, 20.08],
+  finstrom: [60.23, 19.9],
+  sund: [60.24, 20.1],
+  saltvik: [60.28, 20.07],
+};
+const MUNICIPALITY_ALIASES = {
+  mariehamn: 'maarianhamina',
+  aland: 'ahvenanmaa',
+};
 
 /**
  * PDGA-tasojen visuaalinen määrittely: väri, ikoni ja näyttönimi.
@@ -108,13 +169,523 @@ function pdgaTierBadgeHtml(tier) {
 let cachedNewsItems = [];
 const competitionCalendarState = {
   calendar: null,
+  map: null,
+  mapMarkersLayer: null,
+  mapRangeStart: null,
+  mapRangeEnd: null,
   events: [],
   availableDivisions: [],
   availablePdgaTiers: [],
   availableOrganizers: [],
   availableCompetitionTypes: [],
   lastFilterKey: '',
+  mapActive: false,
+  mapInstance: null,
+  mapMarkers: [],
+  currentDateRange: null,
 };
+
+/**
+ * Suomalaisten kuntien koordinaatit karttanäkymää varten.
+ * Avain on pienillä kirjaimilla normalisoitu kunnan nimi.
+ */
+const FINLAND_MUNICIPALITY_COORDS = {
+  'alajärvi': [63.0005, 23.8167],
+  'alavieska': [64.1683, 24.3235],
+  'alavus': [62.5867, 23.6167],
+  'asikkala': [61.1756, 25.5542],
+  'askola': [60.5264, 25.5889],
+  'aura': [60.6077, 22.5693],
+  'brändö': [60.4095, 21.0457],
+  'eckerö': [60.2219, 19.5669],
+  'enonkoski': [61.9942, 28.7983],
+  'enontekiö': [68.3777, 23.6205],
+  'espoo': [60.2052, 24.6522],
+  'eura': [61.1333, 22.1333],
+  'eurajoki': [61.2, 21.7333],
+  'evijärvi': [63.3667, 23.4833],
+  'finström': [60.2248, 19.9938],
+  'forssa': [60.8175, 23.6208],
+  'föglö': [59.9760, 20.3808],
+  'geta': [60.3815, 19.8516],
+  'haapajärvi': [63.7465, 25.3330],
+  'haapavesi': [64.1406, 25.3554],
+  'hailuoto': [65.0167, 24.7500],
+  'halsua': [63.4699, 24.1852],
+  'hamina': [60.5687, 27.1979],
+  'hammarland': [60.2247, 19.7450],
+  'hankasalmi': [62.3940, 26.4235],
+  'hanko': [59.8285, 22.9632],
+  'harjavalta': [61.3167, 22.1333],
+  'hartola': [61.5833, 26.0167],
+  'hattula': [60.9833, 24.3500],
+  'haukipudas': [65.1828, 25.3621],
+  'haukivuori': [61.9244, 27.2041],
+  'hausjärvi': [60.7833, 25.0000],
+  'heinola': [61.2100, 26.0333],
+  'heinävesi': [62.4324, 28.6524],
+  'helsinki': [60.1699, 24.9384],
+  'himanka': [64.0605, 23.6614],
+  'hirvensalmi': [61.6358, 26.8001],
+  'hollola': [60.9818, 25.5107],
+  'honkajoki': [62.0000, 22.2833],
+  'huittinen': [61.1833, 22.7000],
+  'humppila': [60.9167, 23.3833],
+  'hyrynsalmi': [64.6722, 28.5015],
+  'hyvinkää': [60.6299, 24.8610],
+  'hämeenkoski': [61.2167, 25.2000],
+  'hämeenkyrö': [61.6393, 23.1986],
+  'hämeenlinna': [60.9937, 24.4647],
+  'ii': [65.3120, 25.3701],
+  'iisalmi': [63.5567, 27.1918],
+  'iitti': [60.9782, 26.3120],
+  'ikaalinen': [61.7706, 23.0652],
+  'ilmajoki': [62.7330, 22.5726],
+  'ilomantsi': [62.6714, 30.9353],
+  'imatra': [61.1717, 28.7736],
+  'inari': [68.9062, 27.0277],
+  'inkoo': [60.0500, 24.0000],
+  'isojoki': [62.1167, 21.9667],
+  'isokyrö': [62.9833, 22.3167],
+  'ivalo': [68.6556, 27.5433],
+  'jalasjärvi': [62.5000, 22.7667],
+  'janakkala': [60.9000, 24.6000],
+  'joensuu': [62.6010, 29.7636],
+  'jokioinen': [60.8000, 23.5000],
+  'jomala': [60.1516, 19.9770],
+  'joroinen': [62.1776, 27.8187],
+  'joutsa': [61.8601, 26.1099],
+  'juankoski': [63.0680, 28.3615],
+  'juuka': [63.2385, 29.2634],
+  'juupajoki': [61.8667, 24.2333],
+  'juva': [61.8965, 27.8577],
+  'jyväskylä': [62.2415, 25.7209],
+  'jämsä': [61.8627, 25.1893],
+  'järvenpää': [60.4741, 25.0886],
+  'kaarina': [60.4082, 22.3731],
+  'kaavi': [62.9814, 28.6887],
+  'kajaani': [64.2273, 27.7330],
+  'kalajoki': [64.2581, 23.9576],
+  'kangasala': [61.4651, 23.9773],
+  'kangasniemi': [61.9868, 26.6366],
+  'kankaanpää': [61.8000, 22.4000],
+  'kannonkoski': [62.9699, 25.3355],
+  'kannus': [63.9049, 23.9093],
+  'karijoki': [62.3000, 21.5833],
+  'karkkila': [60.5333, 24.2167],
+  'karstula': [62.8833, 24.7995],
+  'karvia': [62.1333, 22.5500],
+  'kaskinen': [62.3833, 21.2167],
+  'kauhajoki': [62.4333, 22.1833],
+  'kauhava': [63.1010, 23.0599],
+  'kauniainen': [60.2106, 24.7286],
+  'kaustinen': [63.5500, 23.6833],
+  'keitele': [63.1833, 26.3833],
+  'kemi': [65.7368, 24.5643],
+  'kemijärvi': [66.7134, 27.4266],
+  'keminmaa': [65.8013, 24.5601],
+  'kerava': [60.4044, 25.1016],
+  'kerimäki': [61.9165, 29.2748],
+  'kesälahti': [61.9018, 29.8474],
+  'kestilä': [64.3539, 25.9570],
+  'keuruu': [62.2547, 24.7052],
+  'kihniö': [62.1667, 23.2000],
+  'kiikoinen': [61.4167, 22.7167],
+  'kiiminki': [65.1289, 25.7291],
+  'kimitoön': [60.1706, 22.7261],
+  'kirkkonummi': [60.1225, 24.4357],
+  'kitee': [62.0980, 30.1390],
+  'kittilä': [67.6551, 24.9066],
+  'kiuruvesi': [63.6514, 26.5994],
+  'kivijärvi': [63.1175, 25.1082],
+  'kokemäki': [61.2500, 22.3500],
+  'kokkola': [63.8376, 23.1320],
+  'kolari': [67.3321, 23.7958],
+  'konnevesi': [62.6269, 26.3388],
+  'kontiolahti': [62.7490, 29.8444],
+  'korsnäs': [62.8667, 21.2000],
+  'koskitl': [60.6167, 23.1500],
+  'kotka': [60.4664, 26.9458],
+  'kouvola': [60.8686, 26.7042],
+  'kristiinankaupunki': [62.2739, 21.3767],
+  'kruunupyy': [63.7167, 23.0000],
+  'kuhmo': [64.1235, 29.5170],
+  'kuhmoinen': [61.5667, 25.1833],
+  'kumlinge': [60.2539, 20.7603],
+  'kuopio': [62.8924, 27.6780],
+  'kuortane': [62.8000, 23.5000],
+  'kurikka': [62.6167, 22.4167],
+  'kustavi': [60.5502, 21.3482],
+  'kuusamo': [65.9617, 29.1778],
+  'kuusankoski': [60.9055, 26.6285],
+  'kyyjärvi': [62.9880, 24.5716],
+  'kärkölä': [60.8833, 25.2833],
+  'kärsämäki': [63.9783, 25.7665],
+  'kökar': [59.9200, 20.9200],
+  'lahti': [60.9827, 25.6612],
+  'laihia': [62.9833, 22.0167],
+  'laitila': [60.8794, 21.6994],
+  'lapinjärvi': [60.6058, 26.1483],
+  'lapinlahti': [63.3618, 27.3960],
+  'lappajärvi': [63.2167, 23.6333],
+  'lappeenranta': [61.0587, 28.1886],
+  'lapua': [62.9691, 23.0068],
+  'laukaa': [62.4053, 25.9481],
+  'lemi': [61.0527, 27.9892],
+  'lemland': [60.0481, 20.0659],
+  'lempäälä': [61.3131, 23.7534],
+  'leppävirta': [62.4862, 27.7750],
+  'lestijärvi': [63.5300, 24.6564],
+  'lieksa': [63.3190, 30.0229],
+  'lieto': [60.5029, 22.4517],
+  'liperi': [62.5300, 29.3846],
+  'lohja': [60.2490, 24.0665],
+  'lohtaja': [64.0226, 23.5497],
+  'loimaa': [60.8521, 23.0575],
+  'loppi': [60.7167, 24.4333],
+  'loviisa': [60.4564, 26.2261],
+  'lumparland': [60.1000, 20.2500],
+  'luoto': [63.9167, 22.7000],
+  'luumäki': [60.8824, 27.5885],
+  'maarianhamina': [60.0971, 19.9348],
+  'mariehamn': [60.0971, 19.9348],
+  'masku': [60.5699, 22.1003],
+  'merijärvi': [64.2097, 24.1637],
+  'merikarvia': [61.8500, 21.5000],
+  'miehikkälä': [60.6833, 27.6833],
+  'mikkeli': [61.6873, 27.2717],
+  'muhos': [64.8083, 25.9958],
+  'multia': [62.3954, 24.7961],
+  'muonio': [67.9554, 23.6720],
+  'mustasaari': [63.1000, 21.7000],
+  'muurame': [62.1333, 25.6667],
+  'muurla': [60.3455, 23.3621],
+  'mynämäki': [60.6806, 21.9977],
+  'myrskylä': [60.6618, 25.8556],
+  'mäntsälä': [60.6355, 25.3162],
+  'mänttä-vilppula': [62.0333, 24.6333],
+  'mäntyharju': [61.4132, 26.8827],
+  'naantali': [60.4677, 22.0257],
+  'nakkila': [61.3667, 21.9833],
+  'nastola': [60.9484, 25.9213],
+  'nilsiä': [63.2044, 28.0684],
+  'nivala': [63.9227, 24.9737],
+  'nokia': [61.4785, 23.5085],
+  'nousiainen': [60.6135, 22.0837],
+  'nuijamaa': [61.0833, 28.5500],
+  'nummi-pusula': [60.3167, 23.8333],
+  'nurmes': [63.5463, 29.1396],
+  'nurmijärvi': [60.4680, 24.8073],
+  'närpiö': [62.4761, 21.3314],
+  'orimattila': [60.8049, 25.7282],
+  'oripää': [60.8333, 22.6833],
+  'orivesi': [61.6773, 24.3569],
+  'oulainen': [64.2682, 24.7988],
+  'oulu': [65.0126, 25.4719],
+  'oulunsalo': [64.9400, 25.4777],
+  'outokumpu': [62.7254, 29.0171],
+  'padasjoki': [61.3500, 25.1167],
+  'paimio': [60.4570, 22.6893],
+  'parainen': [60.3010, 22.3036],
+  'parikkala': [61.5503, 29.5172],
+  'parkano': [62.0166, 23.0229],
+  'pedersören kunta': [63.6667, 22.8333],
+  'pelkosenniemi': [67.1070, 27.5023],
+  'pello': [66.7802, 23.9616],
+  'perho': [63.3001, 24.4184],
+  'pertunmaa': [61.4966, 26.6120],
+  'petäjävesi': [62.2546, 25.2074],
+  'pieksämäki': [62.3014, 27.1332],
+  'pielavesi': [63.2333, 26.7667],
+  'pietarsaari': [63.6731, 22.6924],
+  'pihtipudas': [63.3719, 25.5826],
+  'pirkkala': [61.4655, 23.5850],
+  'pohja': [60.1000, 23.5167],
+  'polvijärvi': [62.8593, 29.3702],
+  'pomarkku': [61.6833, 22.0000],
+  'pori': [61.4851, 21.7971],
+  'pornainen': [60.4833, 25.3833],
+  'porvoo': [60.3923, 25.6649],
+  'posio': [66.1077, 28.1655],
+  'pudasjärvi': [65.3627, 26.9104],
+  'pukkila': [60.6319, 25.7037],
+  'punkalaidun': [61.1076, 23.1003],
+  'puolanka': [64.8677, 27.6613],
+  'puumala': [61.5294, 28.1808],
+  'pyhäjoki': [64.4681, 24.2543],
+  'pyhäjärvi': [63.6667, 25.9500],
+  'pyhäntä': [64.1058, 26.4244],
+  'pyhäranta': [60.9667, 21.4500],
+  'päijät-häme': [61.0000, 26.0000],
+  'pälkäne': [61.3352, 24.2621],
+  'pöytyä': [60.7333, 22.8500],
+  'raahe': [64.6851, 24.4820],
+  'raasepori': [60.0000, 23.4333],
+  'raisio': [60.4870, 22.1679],
+  'rantasalmi': [62.0650, 28.2960],
+  'ranua': [65.9264, 26.5275],
+  'rauma': [61.1275, 21.5118],
+  'rautalampi': [62.6280, 26.8325],
+  'rautavaara': [63.4924, 28.3011],
+  'rautjärvi': [61.4109, 29.3488],
+  'reisjärvi': [63.8417, 24.8074],
+  'riihimäki': [60.7399, 24.7737],
+  'ristijärvi': [64.5060, 28.2180],
+  'rovaniemi': [66.5039, 25.7294],
+  'ruokolahti': [61.2802, 28.8294],
+  'ruovesi': [61.9861, 24.0862],
+  'rusko': [60.5167, 22.2167],
+  'rääkkylä': [62.3214, 30.0196],
+  'saarijärvi': [62.7138, 25.2543],
+  'salla': [66.8289, 28.6710],
+  'salo': [60.3844, 23.1251],
+  'saltvik': [60.2590, 20.0921],
+  'sastamala': [61.3419, 22.9082],
+  'sauvo': [60.3378, 22.6863],
+  'savitaipale': [61.1833, 27.7000],
+  'savonlinna': [61.8691, 28.8791],
+  'savonranta': [62.1924, 29.2036],
+  'savukoski': [67.2937, 28.1639],
+  'seinäjoki': [62.7903, 22.8403],
+  'sievi': [63.8884, 24.4954],
+  'siikajoki': [64.7000, 24.9167],
+  'siilinjärvi': [63.0764, 27.6624],
+  'simo': [65.6600, 25.0650],
+  'sipoo': [60.3793, 25.2666],
+  'sodankylä': [67.4174, 26.5893],
+  'soini': [62.8667, 24.2167],
+  'somero': [60.6275, 23.5211],
+  'sonkajärvi': [63.6684, 27.5116],
+  'sottunga': [60.1219, 20.6740],
+  'sulkava': [61.7777, 28.3733],
+  'sund': [60.2281, 20.1706],
+  'suomussalmi': [64.8845, 28.9086],
+  'suonenjoki': [62.6244, 27.1255],
+  'sysmä': [61.5000, 25.6833],
+  'säkylä': [61.0500, 22.3500],
+  'taipalsaari': [61.1681, 28.1047],
+  'taivalkoski': [65.5703, 28.2489],
+  'taivassalo': [60.5667, 21.5833],
+  'tammela': [60.8167, 23.7667],
+  'tampere': [61.4978, 23.7610],
+  'tervola': [66.0854, 25.0089],
+  'tervo': [62.9625, 26.7495],
+  'teuva': [62.4833, 21.7333],
+  'tohmajärvi': [62.2255, 30.3413],
+  'toholampi': [63.7764, 24.2551],
+  'toivakka': [62.0918, 26.0898],
+  'tornio': [65.8505, 24.1427],
+  'turku': [60.4518, 22.2666],
+  'tuupovaara': [62.4939, 30.6131],
+  'tuusniemi': [62.8167, 28.5000],
+  'tuusula': [60.4034, 25.0214],
+  'tyrnävä': [64.8167, 25.7167],
+  'ullava': [63.8955, 24.0213],
+  'ulvila': [61.4333, 21.8833],
+  'urjala': [61.0696, 23.5441],
+  'utajärvi': [64.7566, 26.3861],
+  'utsjoki': [69.9084, 27.0138],
+  'uurainen': [62.5253, 25.3867],
+  'uusikaupunki': [60.7985, 21.4099],
+  'vaala': [64.4860, 26.8279],
+  'vaasa': [63.0960, 21.6158],
+  'valkeakoski': [61.2682, 24.0310],
+  'valtimo': [63.6740, 28.8163],
+  'vantaa': [60.2941, 25.0378],
+  'varkaus': [62.3151, 27.8676],
+  'vehmaa': [60.6765, 21.6620],
+  'vesanto': [62.9323, 26.4198],
+  'veteli': [63.4876, 23.7568],
+  'vieremä': [63.7558, 26.9900],
+  'vihti': [60.4202, 24.3936],
+  'viitasaari': [63.0648, 25.8530],
+  'virrat': [62.2412, 23.7748],
+  'virtasalmi': [62.1944, 27.2706],
+  'värdö': [60.2013, 20.3921],
+  'vöyri': [63.1333, 22.2333],
+  'ylitornio': [66.3217, 23.6806],
+  'ylivieska': [64.0737, 24.5567],
+  'ylöjärvi': [61.5554, 23.5885],
+  'ypäjä': [60.7833, 23.2667],
+  'ähtäri': [62.5500, 24.0667],
+  'äänekoski': [62.6008, 25.7261],
+};
+
+/**
+ * Palauttaa koordinaatit paikkakunnalle.
+ * Yrittää ensin tarkan osuman, sitten osittaista hakua.
+ * @param {string} paikkakunta
+ * @returns {[number, number] | null}
+ */
+function getMunicipalityCoords(paikkakunta) {
+  if (!paikkakunta) return null;
+  // Normalisoi: pienillä kirjaimilla, välit poistettu, pilkun jälkeinen osa poistetaan
+  const raw = paikkakunta.toLowerCase().trim().split(/[,/]/)[0].trim();
+
+  if (FINLAND_MUNICIPALITY_COORDS[raw]) return FINLAND_MUNICIPALITY_COORDS[raw];
+
+  // Osittainen osuma: avain vastaa alun alusta tai päin vastoin
+  for (const [key, coords] of Object.entries(FINLAND_MUNICIPALITY_COORDS)) {
+    if (raw === key || raw.startsWith(key + ' ') || key.startsWith(raw + ' ')) {
+      return coords;
+    }
+  }
+
+  // Väljempi sisältyvyystarkistus
+  for (const [key, coords] of Object.entries(FINLAND_MUNICIPALITY_COORDS)) {
+    if (raw.includes(key) || key.includes(raw)) {
+      return coords;
+    }
+  }
+
+  return null;
+}
+
+/** Piirtää tai päivittää kilpailukartan. */
+function renderCompetitionMap() {
+  const mapEl = document.getElementById('competition-map');
+  if (!mapEl) return;
+
+  // Alustetaan Leaflet-kartta ensimmäisellä kerralla
+  if (!competitionCalendarState.mapInstance) {
+    competitionCalendarState.mapInstance = L.map('competition-map', { scrollWheelZoom: false }).setView([64.5, 26.0], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-tekijät',
+      maxZoom: 18,
+    }).addTo(competitionCalendarState.mapInstance);
+  }
+
+  // Poistetaan vanhat markerit
+  competitionCalendarState.mapMarkers.forEach((m) => m.remove());
+  competitionCalendarState.mapMarkers = [];
+
+  const filteredEvents = getFilteredCompetitionEvents();
+
+  // Suodatetaan näkyvillä olevan ajanjakson mukaan
+  const dateRange = competitionCalendarState.currentDateRange;
+  const visibleEvents = dateRange
+    ? filteredEvents.filter((ev) => {
+        const evStart = new Date(ev.start);
+        const evEnd = new Date(ev.end);
+        return evStart < dateRange.end && evEnd > dateRange.start;
+      })
+    : filteredEvents;
+
+  // Ryhmitellään tapahtumat sijainnin mukaan
+  /** @type {Map<string, {coords: [number,number], events: Array}>} */
+  const byLocation = new Map();
+  visibleEvents.forEach((ev) => {
+    const paikkakunta = ev.extendedProps?.paikkakunta || '';
+    const coords = getMunicipalityCoords(paikkakunta);
+    if (!coords) return;
+    const key = coords.join(',');
+    if (!byLocation.has(key)) {
+      byLocation.set(key, { coords, events: [] });
+    }
+    byLocation.get(key).events.push(ev);
+  });
+
+  byLocation.forEach(({ coords, events: locationEvents }) => {
+    const tierKey = normalizePdgaTierKey(locationEvents[0]?.extendedProps?.pdgatier);
+    const { color } = getPdgaTierStyle(tierKey);
+
+    // Värikoodattu markeri PDGA-tason mukaan
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="competition-map-marker" style="background:${color}" title="${escapeHtml(locationEvents[0]?.extendedProps?.paikkakunta || '')}"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    });
+
+    const marker = L.marker(coords, { icon });
+
+    // Popup-sisältö DOM-elementtinä
+    const popupEl = document.createElement('div');
+    popupEl.className = 'competition-map-popup';
+
+    if (locationEvents.length === 1) {
+      const ev = locationEvents[0];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'competition-map-popup__btn';
+      btn.textContent = ev.title;
+      btn.addEventListener('click', () => {
+        marker.closePopup();
+        openCompetitionModal({
+          event: {
+            title: ev.title,
+            startStr: ev.start,
+            endStr: ev.end,
+            extendedProps: ev.extendedProps,
+          },
+        });
+      });
+      const loc = document.createElement('p');
+      loc.className = 'competition-map-popup__loc';
+      loc.textContent = ev.extendedProps?.paikkakunta || '';
+      popupEl.appendChild(loc);
+      popupEl.appendChild(btn);
+    } else {
+      const heading = document.createElement('p');
+      heading.className = 'competition-map-popup__loc';
+      heading.textContent = `${locationEvents[0]?.extendedProps?.paikkakunta || ''} (${locationEvents.length} kilpailua)`;
+      popupEl.appendChild(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'competition-map-popup__list';
+      locationEvents.forEach((ev) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'competition-map-popup__btn';
+        btn.textContent = ev.title;
+        btn.addEventListener('click', () => {
+          marker.closePopup();
+          openCompetitionModal({
+            event: {
+              title: ev.title,
+              startStr: ev.start,
+              endStr: ev.end,
+              extendedProps: ev.extendedProps,
+            },
+          });
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+      popupEl.appendChild(list);
+    }
+
+    marker.bindPopup(popupEl).addTo(competitionCalendarState.mapInstance);
+    competitionCalendarState.mapMarkers.push(marker);
+  });
+
+  // Pakota Leaflet päivittämään koko kartta (tärkeää hidden → visible -vaihdon jälkeen)
+  competitionCalendarState.mapInstance.invalidateSize();
+}
+
+/** Kytkee karttanäkymän päälle tai pois. */
+function toggleCompetitionMap() {
+  const mapEl = document.getElementById('competition-map');
+  const calendarEl = document.getElementById('competition-calendar');
+  if (!mapEl || !calendarEl) return;
+
+  const viewHarness = calendarEl.querySelector('.fc-view-harness');
+  const mapBtn = calendarEl.querySelector('.fc-karttaNakyma-button');
+
+  competitionCalendarState.mapActive = !competitionCalendarState.mapActive;
+
+  if (competitionCalendarState.mapActive) {
+    if (viewHarness) viewHarness.style.display = 'none';
+    mapEl.hidden = false;
+    if (mapBtn) mapBtn.classList.add('fc-button-active');
+    renderCompetitionMap();
+  } else {
+    if (viewHarness) viewHarness.style.display = '';
+    mapEl.hidden = true;
+    if (mapBtn) mapBtn.classList.remove('fc-button-active');
+  }
+}
 
 /** Palauttaa tällä hetkellä valitun roolin sessionStoragesta. */
 function getSelectedRole() {
@@ -1305,7 +1876,12 @@ function renderCompetitionCalendarFilter() {
   if (competitionCalendarState.lastFilterKey !== nextFilterKey) {
     competitionCalendarState.lastFilterKey = nextFilterKey;
     competitionCalendarState.calendar.refetchEvents();
+    if (competitionCalendarState.mapActive) {
+      renderCompetitionMap();
+    }
   }
+
+  updateCompetitionMap();
 
   if (competitionCalendarState.events.length === 0) {
     statusEl.textContent = 'Kilpailuja ei löytynyt.';
@@ -1423,6 +1999,153 @@ function closeCompetitionModal() {
   document.body.classList.remove('modal-open');
 }
 
+/** Poistaa ääkköset ja erikoismerkit kuntahakuavainta varten. */
+function normalizeMunicipalityKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** Pilkkoo paikkakuntakentän mahdolliset vaihtoehdot (esim. "Maarianhamina / Mariehamn"). */
+function getMunicipalityCandidates(rawValue) {
+  return String(rawValue || '')
+    .split(/[\/,;()]/)
+    .map((part) => normalizeMunicipalityKey(part))
+    .filter(Boolean);
+}
+
+/** Luo vakioavaimen koordinaattien ryhmittelyyn markerien limityksen estossa. */
+function createCoordinateKey(coordinates) {
+  const [lat, lng] = coordinates;
+  return `${lat.toFixed(MAP_COORDINATE_KEY_PRECISION)},${lng.toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
+}
+
+/** Palauttaa paikkakunnalle koordinaatit tai null, jos niitä ei löydy. */
+function resolveCompetitionCoordinates(paikkakunta) {
+  const candidates = getMunicipalityCandidates(paikkakunta);
+  for (const candidate of candidates) {
+    const normalizedVariants = [candidate.replace(/\s+/g, ''), candidate];
+    for (const variant of normalizedVariants) {
+      const aliasKey = MUNICIPALITY_ALIASES[variant] || variant;
+      if (MUNICIPALITY_COORDINATES[aliasKey]) {
+        return MUNICIPALITY_COORDINATES[aliasKey];
+      }
+    }
+  }
+  return null;
+}
+
+/** Muuntaa kilpailudatan map-markerin modal-klikkaukseen sopivaksi eventInfo-rakenteeksi. */
+function toCompetitionModalEventInfo(eventItem) {
+  return {
+    event: {
+      title: eventItem.title,
+      startStr: eventItem.start,
+      endStr: eventItem.end,
+      extendedProps: eventItem.extendedProps || {},
+    },
+  };
+}
+
+/** Palauttaa kilpailut sekä aktiivisten suodattimien että näkyvän kalenterivälin perusteella. */
+function getVisibleCompetitionEventsForMap() {
+  const visibleEvents = getFilteredCompetitionEvents();
+
+  if (!competitionCalendarState.mapRangeStart || !competitionCalendarState.mapRangeEnd) {
+    return visibleEvents;
+  }
+
+  const rangeStartTime = competitionCalendarState.mapRangeStart.getTime();
+  const rangeEndTime = competitionCalendarState.mapRangeEnd.getTime();
+
+  return visibleEvents.filter((eventItem) => {
+    const eventStart = new Date(eventItem.start);
+    const eventEndExclusive = new Date(eventItem.end || eventItem.start);
+    return eventStart.getTime() < rangeEndTime && eventEndExclusive.getTime() > rangeStartTime;
+  });
+}
+
+/** Päivittää karttanäkymän markerit aktiivisella suodatus- ja päivämäärärajauksella. */
+function updateCompetitionMap() {
+  if (!competitionCalendarState.map || !competitionCalendarState.mapMarkersLayer) {
+    return;
+  }
+
+  const events = getVisibleCompetitionEventsForMap();
+  competitionCalendarState.mapMarkersLayer.clearLayers();
+
+  const coordinateUsageCount = new Map();
+  const markerCoordinates = [];
+
+  events.forEach((eventItem) => {
+    const coords = resolveCompetitionCoordinates(eventItem?.extendedProps?.paikkakunta);
+    if (!coords) {
+      return;
+    }
+
+    const key = createCoordinateKey(coords);
+    const usageCount = coordinateUsageCount.get(key) || 0;
+    coordinateUsageCount.set(key, usageCount + 1);
+
+    const hasOverlap = usageCount > 0;
+    const angle = usageCount * MAP_OVERLAP_OFFSET_ANGLE_STEP_RADIANS;
+    const lat = coords[0] + (hasOverlap ? Math.sin(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
+    const lng = coords[1] + (hasOverlap ? Math.cos(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
+    const marker = L.marker([lat, lng], {
+      title: eventItem.title,
+      riseOnHover: true,
+    });
+
+    marker.on('click', () => {
+      openCompetitionModal(toCompetitionModalEventInfo(eventItem));
+    });
+    marker.bindTooltip(escapeHtml(eventItem.title));
+
+    competitionCalendarState.mapMarkersLayer.addLayer(marker);
+    markerCoordinates.push([lat, lng]);
+  });
+
+  if (markerCoordinates.length === 1) {
+    competitionCalendarState.map.setView(markerCoordinates[0], MAP_SINGLE_MARKER_ZOOM);
+    return;
+  }
+
+  if (markerCoordinates.length > 1) {
+    competitionCalendarState.map.fitBounds(markerCoordinates, {
+      padding: [24, 24],
+      maxZoom: MAP_FIT_BOUNDS_MAX_ZOOM,
+    });
+  } else {
+    competitionCalendarState.map.setView(FINLAND_CENTER_COORDINATES, 5);
+  }
+}
+
+/** Alustaa kilpailukalenterin karttanäkymän. */
+function initCompetitionMap() {
+  const mapEl = document.getElementById('competition-calendar-map');
+  if (!mapEl || typeof L === 'undefined') {
+    return;
+  }
+
+  const map = L.map(mapEl, {
+    center: FINLAND_CENTER_COORDINATES,
+    zoom: 5,
+    minZoom: 4,
+    maxBounds: FINLAND_BOUNDS,
+    maxBoundsViscosity: 0.8,
+  });
+
+  L.tileLayer(MAP_TILE_SERVER_URL, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+
+  competitionCalendarState.map = map;
+  competitionCalendarState.mapMarkersLayer = L.layerGroup().addTo(map);
+}
+
 /** Pakenee HTML-erikoismerkit. */
 function escapeHtml(str) {
   return String(str)
@@ -1439,6 +2162,7 @@ async function initCompetitionCalendar() {
   const statusEl = document.getElementById('competition-calendar-status');
 
   if (!calendarEl) return;
+  initCompetitionMap();
 
   let events = [];
 
@@ -1475,10 +2199,19 @@ async function initCompetitionCalendar() {
     initialView: 'dayGridMonth',
     locale: 'fi',
     firstDay: 1,
+    customButtons: {
+      karttaNakyma: {
+        text: 'Kartta',
+        click() {
+          toggleCompetitionMap();
+        },
+      },
+    },
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
       right: 'dayGridMonth,timeGridWeek,listMonth',
+      right: 'dayGridMonth,timeGridWeek,listYear,karttaNakyma',
     },
     buttonText: {
       today: 'Tänään',
@@ -1486,8 +2219,30 @@ async function initCompetitionCalendar() {
       week: 'Viikko',
       list: 'Lista',
     },
+    datesSet(arg) {
+      competitionCalendarState.currentDateRange = { start: arg.start, end: arg.end };
+      if (competitionCalendarState.mapActive) {
+        renderCompetitionMap();
+      }
+    },
+    viewDidMount() {
+      if (competitionCalendarState.mapActive) {
+        const mapEl = document.getElementById('competition-map');
+        const viewHarness = calendarEl.querySelector('.fc-view-harness');
+        const mapBtn = calendarEl.querySelector('.fc-karttaNakyma-button');
+        competitionCalendarState.mapActive = false;
+        if (viewHarness) viewHarness.style.display = '';
+        if (mapEl) mapEl.hidden = true;
+        if (mapBtn) mapBtn.classList.remove('fc-button-active');
+      }
+    },
     events(info, successCallback) {
       successCallback(getFilteredCompetitionEvents());
+    },
+    datesSet(dateInfo) {
+      competitionCalendarState.mapRangeStart = dateInfo.start;
+      competitionCalendarState.mapRangeEnd = dateInfo.end;
+      updateCompetitionMap();
     },
     eventTextColor: '#ffffff',
     eventDisplay: 'block',
@@ -1511,6 +2266,7 @@ async function initCompetitionCalendar() {
   competitionCalendarState.calendar = calendar;
   calendar.render();
   renderCompetitionCalendarFilter();
+  updateCompetitionMap();
 
   // Modalin sulkeminen
   document.getElementById('competition-modal-close').addEventListener('click', closeCompetitionModal);
