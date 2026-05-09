@@ -700,6 +700,8 @@ function getSelectedRole() {
 function selectRole(roleId) {
   sessionStorage.setItem('selectedRole', roleId);
   closeEditor();
+  applicationsState.currentApplication = null;
+  showApplicationsSection(false);
   renderApp();
 }
 
@@ -1396,6 +1398,7 @@ function renderApp() {
   renderNewsDetail();
   renderCompetitionCalendarLegend();
   renderCompetitionCalendarFilter();
+  renderApplicationsSection();
 }
 
 /** Alustaa staattiset kuuntelijat. */
@@ -1421,6 +1424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   buildRoleCards();
   bindEventListeners();
+  bindApplicationListeners();
   try {
     await fetchNewsFromApi();
   } catch (error) {
@@ -1969,6 +1973,13 @@ function openCompetitionModal(eventInfo) {
     </div>`;
   }
 
+  const dgmLinkHtml = p.dgm_link
+    ? `<div class="comp-detail-row">
+        <span class="comp-detail-label">DGM-linkki</span>
+        <span class="comp-detail-value"><a href="${escapeHtml(p.dgm_link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.dgm_link)}</a></span>
+      </div>`
+    : '';
+
   content.innerHTML = `
     <h2 class="comp-detail-title" id="competition-modal-title">${escapeHtml(title)}</h2>
     <div class="comp-detail-grid">
@@ -1990,6 +2001,7 @@ function openCompetitionModal(eventInfo) {
       ${row('Kilpailunjohtaja PDGA', p.kilpailunjohtajapdga)}
       ${row('Apukilpailunjohtaja', p.apukilpailunjohtaja)}
       ${row('Apukilpailunjohtaja PDGA', p.apukilpailunjohtajapdga)}
+      ${dgmLinkHtml}
     </div>
   `;
 
@@ -2287,4 +2299,710 @@ async function initCompetitionCalendar() {
       closeCompetitionModal();
     }
   });
+}
+
+/* ============================================================
+   Hakemukset – kilpailuhakemusworkflow
+   ============================================================ */
+
+const APPLICATIONS_API_URL = 'api/applications.php';
+const APPLICATION_OPTIONS_API_URL = 'api/application-options.php';
+
+const APPLICATION_STATUSES = {
+  avoin:            { label: 'Avoin',            className: 'badge-avoin' },
+  liitto_kasittelee:{ label: 'Liitto käsittelee', className: 'badge-kasittelee' },
+  hyvaksytty:       { label: 'Hyväksytty',        className: 'badge-hyvaksytty' },
+  hylatty:          { label: 'Hylätty',           className: 'badge-hylatty' },
+};
+
+const applicationsState = {
+  applications: [],
+  options: null,
+  currentApplication: null,
+  filterStatus: '',
+};
+
+/** Palauttaa hakemusosion hakemukset suodatettuna. */
+function getFilteredApplications() {
+  const { filterStatus, applications } = applicationsState;
+  if (!filterStatus) {
+    return applications;
+  }
+  return applications.filter((app) => app.status === filterStatus);
+}
+
+/** Palauttaa tilan suomenkielisen tekstin ja CSS-luokan. */
+function getStatusInfo(status) {
+  return APPLICATION_STATUSES[status] || { label: status, className: '' };
+}
+
+/** Rakentaa status-badgen HTML:n. */
+function statusBadgeHtml(status) {
+  const { label, className } = getStatusInfo(status);
+  return `<span class="app-status-badge ${escapeHtml(className)}">${escapeHtml(label)}</span>`;
+}
+
+/** Muotoilee päivämäärän ja ajan selkeästi. */
+function formatAppDateTime(isoString) {
+  if (!isoString) {
+    return '–';
+  }
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return isoString;
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Hakee lookup-taulut kerran. */
+async function fetchApplicationOptions() {
+  if (applicationsState.options) {
+    return applicationsState.options;
+  }
+
+  const response = await fetch(APPLICATION_OPTIONS_API_URL, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  applicationsState.options = await response.json();
+  return applicationsState.options;
+}
+
+/** Hakee hakemukset API:sta roolille. */
+async function fetchApplications(role) {
+  const response = await fetch(`${APPLICATIONS_API_URL}?role=${encodeURIComponent(role)}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error('Hakemusten haku epäonnistui.');
+  }
+
+  const parsed = await response.json();
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+/** Näyttää tai piilottaa hakemuslomakeosion, listausosio vastaavasti. */
+function showApplicationsSection(showForm) {
+  const listSection = document.getElementById('applications-section');
+  const formSection = document.getElementById('application-form-section');
+
+  if (!listSection || !formSection) {
+    return;
+  }
+
+  listSection.hidden = showForm;
+  formSection.hidden = !showForm;
+}
+
+/** Piirtää listauksen. */
+function renderApplicationsList() {
+  const container = document.getElementById('applications-list');
+  if (!container) {
+    return;
+  }
+
+  const role = getSelectedRole();
+  const filtered = getFilteredApplications();
+
+  if (!filtered.length) {
+    container.innerHTML = '<p class="list-message list-message--muted">Ei hakemuksia.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  filtered.forEach((app) => {
+    const card = document.createElement('article');
+    card.className = 'application-card';
+
+    const canEdit = role === 'kilpailujohtaja' && (app.status === 'avoin' || app.status === 'hylatty');
+    const canDelete = role === 'kilpailujohtaja' && (app.status === 'avoin' || app.status === 'hylatty');
+    const canSubmit = role === 'kilpailujohtaja' && (app.status === 'avoin' || app.status === 'hylatty');
+    const canDecide = role === 'liitto' && app.status === 'liitto_kasittelee';
+
+    card.innerHTML = `
+      <div class="application-card__header">
+        <div class="application-card__title">
+          <span class="application-card__name">${escapeHtml(app.kilpailunnimi || '(nimetön)')}</span>
+          ${statusBadgeHtml(app.status)}
+        </div>
+        <div class="application-card__meta">
+          <span>${escapeHtml(app.paikkakunta || '')}${app.rata ? ` / ${escapeHtml(app.rata)}` : ''}</span>
+          <span class="application-card__date">Luotu: ${formatAppDateTime(app.created_at)}</span>
+        </div>
+      </div>
+      <div class="application-card__actions">
+        <button type="button" class="secondary-button btn-open-app" data-id="${app.id}">Avaa</button>
+        ${canEdit ? `<button type="button" class="secondary-button btn-edit-app" data-id="${app.id}">Muokkaa</button>` : ''}
+        ${canSubmit ? `<button type="button" class="primary-button btn-submit-app" data-id="${app.id}">Lähetä käsittelyyn</button>` : ''}
+        ${canDecide ? `<button type="button" class="primary-button btn-open-app" data-id="${app.id}">Käsittele</button>` : ''}
+        ${canDelete ? `<button type="button" class="danger-button btn-delete-app" data-id="${app.id}">Poista</button>` : ''}
+      </div>
+    `;
+
+    card.querySelector('.btn-open-app').addEventListener('click', () => openApplication(app.id, false));
+
+    const editBtn = card.querySelector('.btn-edit-app');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => openApplication(app.id, true));
+    }
+
+    const submitBtn = card.querySelector('.btn-submit-app');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', () => quickSubmitApplication(app.id));
+    }
+
+    const deleteBtn = card.querySelector('.btn-delete-app');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => deleteApplication(app.id));
+    }
+
+    container.appendChild(card);
+  });
+}
+
+/** Täyttää hakemuslomakkeen hakemuksen tiedoilla (tai tyhjänä uudelle). */
+async function populateApplicationForm(app, editMode) {
+  const options = await fetchApplicationOptions();
+
+  // Haettava kilpailu -select
+  const typeSelect = document.getElementById('app-haettavakilpailu');
+  if (typeSelect) {
+    typeSelect.innerHTML = '<option value="">– Valitse –</option>';
+    if (options && options.competition_types) {
+      options.competition_types.forEach((ct) => {
+        const opt = document.createElement('option');
+        opt.value = ct.name;
+        opt.textContent = ct.name;
+        if (app && app.haettavakilpailu === ct.name) {
+          opt.selected = true;
+        }
+        typeSelect.appendChild(opt);
+      });
+    }
+    typeSelect.disabled = !editMode;
+  }
+
+  // Kilpailuluokat-select
+  const catSelect = document.getElementById('app-kilpailuluokat');
+  if (catSelect) {
+    catSelect.innerHTML = '<option value="">– Valitse –</option>';
+    if (options && options.competition_category_options) {
+      options.competition_category_options.forEach((cat) => {
+        const opt = document.createElement('option');
+        opt.value = cat.name;
+        opt.textContent = cat.name;
+        if (app && app.kilpailuluokat === cat.name) {
+          opt.selected = true;
+        }
+        catSelect.appendChild(opt);
+      });
+    }
+    catSelect.disabled = !editMode;
+  }
+
+  // PDGA Tier -radio
+  const pdgaContainer = document.getElementById('app-pdgatier-options');
+  if (pdgaContainer) {
+    pdgaContainer.innerHTML = '';
+    const tiers = options && options.pdga_tier_options ? options.pdga_tier_options : [];
+    tiers.forEach((tier) => {
+      const label = document.createElement('label');
+      label.className = 'radio-option';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'pdgatier';
+      input.value = tier.name;
+      if (app && app.pdgatier === tier.name) {
+        input.checked = true;
+      }
+      input.disabled = !editMode;
+      input.addEventListener('change', () => {
+        const otherRow = document.getElementById('pdga-tier-other-row');
+        if (otherRow) {
+          otherRow.hidden = input.value !== 'Other';
+        }
+      });
+      const span = document.createElement('span');
+      span.textContent = tier.name;
+      label.append(input, span);
+      pdgaContainer.appendChild(label);
+    });
+  }
+
+  // Näytä/piilota pdga_tier_other
+  const otherRow = document.getElementById('pdga-tier-other-row');
+  if (otherRow) {
+    otherRow.hidden = !app || app.pdgatier !== 'Other';
+  }
+
+  // Divisions-checkboxit
+  const divContainer = document.getElementById('app-divisions-options');
+  if (divContainer) {
+    divContainer.innerHTML = '';
+    const divs = options && options.division_options ? options.division_options : [];
+    const selectedDivisions = app && Array.isArray(app.divisions) ? app.divisions : [];
+    divs.forEach((div) => {
+      const label = document.createElement('label');
+      label.className = 'checkbox-option';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'divisions';
+      input.value = div.code;
+      input.checked = selectedDivisions.includes(div.code);
+      input.disabled = !editMode;
+      const span = document.createElement('span');
+      span.textContent = div.code;
+      label.append(input, span);
+      divContainer.appendChild(label);
+    });
+  }
+
+  // Tekstikentät
+  const fields = [
+    ['app-kilpailunnimi', 'kilpailunnimi'],
+    ['app-jarjestaja', 'jarjestaja'],
+    ['app-paikkakunta', 'paikkakunta'],
+    ['app-rata', 'rata'],
+    ['app-aloituspvm', 'aloituspvm'],
+    ['app-paatospvm', 'paatospvm'],
+    ['app-pdga-tier-other', 'pdga_tier_other'],
+    ['app-maxpelaajamaara', 'maxpelaajamaara'],
+    ['app-vaylienmaarapk', 'vaylienmaarapk'],
+    ['app-kierrostenmaara', 'kierrostenmaara'],
+    ['app-dgm-link', 'dgm_link'],
+    ['app-kilpailunjohtaja', 'kilpailunjohtaja'],
+    ['app-kilpailunjohtajapdga', 'kilpailunjohtajapdga'],
+    ['app-apukilpailunjohtaja', 'apukilpailunjohtaja'],
+    ['app-apukilpailunjohtajapdga', 'apukilpailunjohtajapdga'],
+  ];
+
+  fields.forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    if (el) {
+      el.value = app ? (app[key] || '') : '';
+      el.disabled = !editMode;
+    }
+  });
+
+  // Piilotettu ID
+  const idField = document.getElementById('application-id');
+  if (idField) {
+    idField.value = app ? app.id : '';
+  }
+}
+
+/** Kokoaa lomakedata objektiksi. */
+function collectApplicationFormData() {
+  const getValue = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+
+  const pdgaTierEl = document.querySelector('#app-pdgatier-options input[name="pdgatier"]:checked');
+  const pdgatier = pdgaTierEl ? pdgaTierEl.value : '';
+
+  const divisions = Array.from(
+    document.querySelectorAll('#app-divisions-options input[type="checkbox"]:checked'),
+  ).map((cb) => cb.value);
+
+  return {
+    id: getValue('application-id') ? parseInt(getValue('application-id'), 10) : null,
+    kilpailunnimi: getValue('app-kilpailunnimi'),
+    jarjestaja: getValue('app-jarjestaja'),
+    paikkakunta: getValue('app-paikkakunta'),
+    rata: getValue('app-rata'),
+    aloituspvm: getValue('app-aloituspvm'),
+    paatospvm: getValue('app-paatospvm'),
+    haettavakilpailu: getValue('app-haettavakilpailu'),
+    kilpailuluokat: getValue('app-kilpailuluokat'),
+    pdgatier,
+    pdga_tier_other: getValue('app-pdga-tier-other'),
+    maxpelaajamaara: getValue('app-maxpelaajamaara'),
+    vaylienmaarapk: getValue('app-vaylienmaarapk'),
+    kierrostenmaara: getValue('app-kierrostenmaara'),
+    dgm_link: getValue('app-dgm-link'),
+    kilpailunjohtaja: getValue('app-kilpailunjohtaja'),
+    kilpailunjohtajapdga: getValue('app-kilpailunjohtajapdga'),
+    apukilpailunjohtaja: getValue('app-apukilpailunjohtaja'),
+    apukilpailunjohtajapdga: getValue('app-apukilpailunjohtajapdga'),
+    kilpailunjohtaja_comment: getValue('app-kj-comment'),
+    divisions,
+  };
+}
+
+/** Avaa yksittäisen hakemuksen lomakkeelle. */
+async function openApplication(appId, editMode) {
+  const role = getSelectedRole();
+  const app = applicationsState.applications.find((a) => a.id === appId) || null;
+  applicationsState.currentApplication = app;
+
+  // Päätä editMode roolin ja tilan mukaan
+  let allowEdit = editMode;
+  if (role === 'liitto') {
+    allowEdit = false;
+  }
+  if (role === 'kilpailujohtaja' && app) {
+    if (!['avoin', 'hylatty'].includes(app.status)) {
+      allowEdit = false;
+    }
+  }
+
+  // Otsikko ja tilahuomio
+  const heading = document.getElementById('application-form-heading');
+  const statusNote = document.getElementById('application-form-status-note');
+  if (heading) {
+    heading.textContent = app ? (app.kilpailunnimi || 'Kilpailuhakemus') : 'Uusi hakemus';
+  }
+  if (statusNote) {
+    statusNote.innerHTML = app ? statusBadgeHtml(app.status) : '';
+  }
+
+  // Liiton kommentti
+  const liittoBox = document.getElementById('liitto-comment-box');
+  const liittoText = document.getElementById('liitto-comment-text');
+  if (liittoBox && liittoText) {
+    if (app && app.liitto_comment) {
+      liittoText.textContent = app.liitto_comment;
+      liittoBox.hidden = false;
+    } else {
+      liittoBox.hidden = true;
+    }
+  }
+
+  // Kilpailunjohtajan kommentti (vain liitto näkee)
+  const kjBox = document.getElementById('kj-comment-box');
+  const kjText = document.getElementById('kj-comment-text');
+  if (kjBox && kjText) {
+    if (role === 'liitto' && app && app.kilpailunjohtaja_comment) {
+      kjText.textContent = app.kilpailunjohtaja_comment;
+      kjBox.hidden = false;
+    } else {
+      kjBox.hidden = true;
+    }
+  }
+
+  // KJ:n kommenttikenttä lähetettäessä
+  const kjCommentRow = document.getElementById('kj-send-comment-row');
+  if (kjCommentRow) {
+    kjCommentRow.hidden = !(role === 'kilpailujohtaja' && allowEdit);
+  }
+  const kjCommentField = document.getElementById('app-kj-comment');
+  if (kjCommentField) {
+    kjCommentField.value = (app && app.kilpailunjohtaja_comment) ? app.kilpailunjohtaja_comment : '';
+  }
+
+  // Täytä lomake
+  await populateApplicationForm(app, allowEdit);
+
+  // Rakenna lomakkeen toimintopainikkeet
+  const actionsContainer = document.getElementById('application-form-actions');
+  if (actionsContainer) {
+    actionsContainer.innerHTML = '';
+
+    if (role === 'kilpailujohtaja' && allowEdit) {
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'primary-button';
+      saveBtn.textContent = 'Tallenna';
+      saveBtn.addEventListener('click', () => saveApplication(false));
+      actionsContainer.appendChild(saveBtn);
+
+      const submitBtn = document.createElement('button');
+      submitBtn.type = 'button';
+      submitBtn.className = 'primary-button';
+      submitBtn.textContent = 'Lähetä käsittelyyn';
+      submitBtn.addEventListener('click', () => saveApplication(true));
+      actionsContainer.appendChild(submitBtn);
+    }
+  }
+
+  // Liiton päätöspaneeli
+  const decisionPanel = document.getElementById('liitto-decision-panel');
+  if (decisionPanel) {
+    decisionPanel.hidden = !(role === 'liitto' && app && app.status === 'liitto_kasittelee');
+    const commentEl = document.getElementById('liitto-decision-comment');
+    if (commentEl) {
+      commentEl.value = '';
+    }
+  }
+
+  showApplicationsSection(true);
+}
+
+/** Tallentaa tai lähettää hakemuksen. */
+async function saveApplication(submit) {
+  const role = getSelectedRole();
+  const data = collectApplicationFormData();
+
+  const isNew = !data.id;
+  const action = isNew ? 'create' : 'update';
+
+  try {
+    let response;
+    if (isNew) {
+      response = await fetch(APPLICATIONS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ action: 'create', role, ...data }),
+      });
+    } else {
+      response = await fetch(APPLICATIONS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ action: 'update', role, ...data }),
+      });
+    }
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      const msg = result.fields ? result.fields.join('\n') : (result.error || 'Tallennus epäonnistui.');
+      window.alert(msg);
+      return;
+    }
+
+    const savedApp = result.application;
+
+    // Jos submit, lähetetään käsittelyyn
+    if (submit && savedApp) {
+      const submitResp = await fetch(APPLICATIONS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          action: 'submit',
+          role,
+          id: savedApp.id,
+          kilpailunjohtaja_comment: data.kilpailunjohtaja_comment,
+          ...savedApp,
+        }),
+      });
+
+      const submitResult = await submitResp.json();
+
+      if (!submitResp.ok) {
+        const msg = submitResult.fields ? submitResult.fields.join('\n') : (submitResult.error || 'Lähetys epäonnistui.');
+        window.alert(msg);
+        return;
+      }
+    }
+
+    // Päivitä lista ja palaa
+    await reloadApplications();
+    showApplicationsSection(false);
+  } catch (error) {
+    window.alert('Virhe tallennuksessa. Yritä uudelleen.');
+  }
+}
+
+/** Lähettää hakemuksen käsittelyyn suoraan listasta. */
+async function quickSubmitApplication(appId) {
+  const role = getSelectedRole();
+  const app = applicationsState.applications.find((a) => a.id === appId);
+  if (!app) {
+    return;
+  }
+
+  if (!window.confirm(`Lähetetäänkö hakemus "${app.kilpailunnimi || appId}" käsittelyyn?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(APPLICATIONS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'submit', role, id: appId, ...app }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      const msg = result.fields ? result.fields.join('\n') : (result.error || 'Lähetys epäonnistui.');
+      window.alert(msg);
+      return;
+    }
+
+    await reloadApplications();
+  } catch (error) {
+    window.alert('Virhe lähetyksessä. Yritä uudelleen.');
+  }
+}
+
+/** Poistaa hakemuksen. */
+async function deleteApplication(appId) {
+  const role = getSelectedRole();
+  const app = applicationsState.applications.find((a) => a.id === appId);
+
+  if (!window.confirm(`Poistetaanko hakemus "${app ? app.kilpailunnimi : appId}"?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${APPLICATIONS_API_URL}?role=${encodeURIComponent(role)}&id=${encodeURIComponent(appId)}`,
+      {
+        method: 'DELETE',
+        headers: { Accept: 'application/json' },
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      window.alert(result.error || 'Poisto epäonnistui.');
+      return;
+    }
+
+    await reloadApplications();
+  } catch (error) {
+    window.alert('Virhe poistossa. Yritä uudelleen.');
+  }
+}
+
+/** Lataa hakemukset uudelleen API:sta. */
+async function reloadApplications() {
+  const role = getSelectedRole();
+  if (!['liitto', 'kilpailujohtaja'].includes(role)) {
+    return;
+  }
+
+  try {
+    applicationsState.applications = await fetchApplications(role);
+  } catch (error) {
+    applicationsState.applications = [];
+  }
+
+  renderApplicationsList();
+}
+
+/** Piirtää hakemukset-osion näkyvyyden ja sisällön. */
+async function renderApplicationsSection() {
+  const role = getSelectedRole();
+  const section = document.getElementById('applications-section');
+  const formSection = document.getElementById('application-form-section');
+  const newBtn = document.getElementById('new-application-button');
+  const copyEl = document.getElementById('applications-section-copy');
+
+  if (!section) {
+    return;
+  }
+
+  const hasAccess = role === 'liitto' || role === 'kilpailujohtaja';
+
+  if (!hasAccess) {
+    section.hidden = true;
+    if (formSection) {
+      formSection.hidden = true;
+    }
+    return;
+  }
+
+  section.hidden = false;
+
+  if (copyEl) {
+    copyEl.textContent = role === 'kilpailujohtaja'
+      ? 'Hallitse omia kilpailuhakemuksiasi.'
+      : 'Tarkastele ja käsittele saapuneita kilpailuhakemuksia.';
+  }
+
+  if (newBtn) {
+    newBtn.hidden = role !== 'kilpailujohtaja';
+  }
+
+  // Aina haetaan uudelleen, kun osio piirretään (rooli voi vaihtua)
+  try {
+    applicationsState.applications = await fetchApplications(role);
+  } catch (error) {
+    applicationsState.applications = [];
+  }
+
+  renderApplicationsList();
+}
+
+/** Käsittelee liiton hyväksyntä/hylkäys-toiminnon. */
+async function handleLiittoDecision(approve) {
+  const role = getSelectedRole();
+  const app = applicationsState.currentApplication;
+  const commentEl = document.getElementById('liitto-decision-comment');
+
+  if (!app || !commentEl) {
+    return;
+  }
+
+  const comment = commentEl.value.trim();
+  if (!comment) {
+    window.alert('Kommentti on pakollinen.');
+    return;
+  }
+
+  const action = approve ? 'approve' : 'reject';
+  const confirmMsg = approve
+    ? `Hyväksytäänkö hakemus "${app.kilpailunnimi}"?`
+    : `Hylätäänkö hakemus "${app.kilpailunnimi}"?`;
+
+  if (!window.confirm(confirmMsg)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(APPLICATIONS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action, role, id: app.id, liitto_comment: comment }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      window.alert(result.error || 'Toiminto epäonnistui.');
+      return;
+    }
+
+    await reloadApplications();
+    showApplicationsSection(false);
+  } catch (error) {
+    window.alert('Virhe. Yritä uudelleen.');
+  }
+}
+
+/** Alustaa hakemusten staattiset kuuntelijat. */
+function bindApplicationListeners() {
+  const newBtn = document.getElementById('new-application-button');
+  if (newBtn) {
+    newBtn.addEventListener('click', () => openApplication(null, true));
+  }
+
+  const backBtn = document.getElementById('application-back-button');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      applicationsState.currentApplication = null;
+      showApplicationsSection(false);
+    });
+  }
+
+  const approveBtn = document.getElementById('liitto-approve-button');
+  if (approveBtn) {
+    approveBtn.addEventListener('click', () => handleLiittoDecision(true));
+  }
+
+  const rejectBtn = document.getElementById('liitto-reject-button');
+  if (rejectBtn) {
+    rejectBtn.addEventListener('click', () => handleLiittoDecision(false));
+  }
+
+  const statusFilter = document.getElementById('applications-status-filter');
+  if (statusFilter) {
+    statusFilter.addEventListener('change', () => {
+      applicationsState.filterStatus = statusFilter.value;
+      renderApplicationsList();
+    });
+  }
 }
