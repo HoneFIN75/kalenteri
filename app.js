@@ -69,6 +69,10 @@ const COMPETITION_TYPE_FILTER_STORAGE_KEY = 'kalenteriCompetitionTypeFilter';
 const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
 const DEFAULT_FINLAND_MAP_VIEW = [64.5, 26.0];
 const FINLAND_BOUNDS = [[59.2, 18.5], [70.5, 32.5]];
+const MAP_COORDINATE_KEY_PRECISION = 4;
+const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
+const MAP_OVERLAP_OFFSET_ANGLE_STEP = 1.2;
+const MAP_FIT_BOUNDS_MAX_ZOOM = 9;
 const MUNICIPALITY_COORDINATES = {
   helsinki: [60.1699, 24.9384],
   espoo: [60.2055, 24.6559],
@@ -1563,14 +1567,13 @@ function updateCompetitionMap() {
       return;
     }
 
-    const key = `${coords[0].toFixed(4)},${coords[1].toFixed(4)}`;
+    const key = `${coords[0].toFixed(MAP_COORDINATE_KEY_PRECISION)},${coords[1].toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
     const usageCount = coordinateUsageCount.get(key) || 0;
     coordinateUsageCount.set(key, usageCount + 1);
 
-    const offsetRadius = 0.03;
-    const angle = usageCount * 1.2;
-    const lat = coords[0] + (usageCount === 0 ? 0 : Math.sin(angle) * offsetRadius);
-    const lng = coords[1] + (usageCount === 0 ? 0 : Math.cos(angle) * offsetRadius);
+    const angle = usageCount * MAP_OVERLAP_OFFSET_ANGLE_STEP;
+    const lat = coords[0] + (usageCount === 0 ? 0 : Math.sin(angle) * MAP_OVERLAP_OFFSET_RADIUS);
+    const lng = coords[1] + (usageCount === 0 ? 0 : Math.cos(angle) * MAP_OVERLAP_OFFSET_RADIUS);
     const marker = L.marker([lat, lng], {
       title: eventItem.title,
       riseOnHover: true,
@@ -1588,7 +1591,7 @@ function updateCompetitionMap() {
   if (markerCoordinates.length > 0) {
     competitionCalendarState.map.fitBounds(markerCoordinates, {
       padding: [24, 24],
-      maxZoom: 9,
+      maxZoom: MAP_FIT_BOUNDS_MAX_ZOOM,
     });
   } else {
     competitionCalendarState.map.setView(DEFAULT_FINLAND_MAP_VIEW, 5);
