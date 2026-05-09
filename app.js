@@ -67,7 +67,7 @@ const COMPETITION_PDGA_TIER_FILTER_STORAGE_KEY = 'kalenteriCompetitionPdgaTierFi
 const COMPETITION_ORGANIZER_FILTER_STORAGE_KEY = 'kalenteriCompetitionOrganizerFilter';
 const COMPETITION_TYPE_FILTER_STORAGE_KEY = 'kalenteriCompetitionTypeFilter';
 const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
-const DEFAULT_FINLAND_CENTER_COORDINATES = [64.5, 26.0];
+const FINLAND_CENTER_COORDINATES = [64.5, 26.0];
 const FINLAND_BOUNDS = [[59.2, 18.5], [70.5, 32.5]];
 const MAP_COORDINATE_KEY_PRECISION = 4;
 const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
@@ -1510,20 +1510,20 @@ function getMunicipalityCandidates(rawValue) {
 
 /** Luo vakioavaimen koordinaattien ryhmittelyyn markerien limityksen estossa. */
 function createCoordinateKey(coordinates) {
-  return `${coordinates[0].toFixed(MAP_COORDINATE_KEY_PRECISION)},${coordinates[1].toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
+  const [lat, lng] = coordinates;
+  return `${lat.toFixed(MAP_COORDINATE_KEY_PRECISION)},${lng.toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
 }
 
 /** Palauttaa paikkakunnalle koordinaatit tai null, jos niitä ei löydy. */
 function resolveCompetitionCoordinates(paikkakunta) {
   const candidates = getMunicipalityCandidates(paikkakunta);
   for (const candidate of candidates) {
-    const key = candidate.replace(/\s+/g, '');
-    const aliasKey = MUNICIPALITY_ALIASES[key] || key;
-    if (MUNICIPALITY_COORDINATES[aliasKey]) {
-      return MUNICIPALITY_COORDINATES[aliasKey];
-    }
-    if (MUNICIPALITY_COORDINATES[candidate]) {
-      return MUNICIPALITY_COORDINATES[candidate];
+    const normalizedVariants = [candidate.replace(/\s+/g, ''), candidate];
+    for (const variant of normalizedVariants) {
+      const aliasKey = MUNICIPALITY_ALIASES[variant] || variant;
+      if (MUNICIPALITY_COORDINATES[aliasKey]) {
+        return MUNICIPALITY_COORDINATES[aliasKey];
+      }
     }
   }
   return null;
@@ -1610,7 +1610,7 @@ function updateCompetitionMap() {
       maxZoom: MAP_FIT_BOUNDS_MAX_ZOOM,
     });
   } else {
-    competitionCalendarState.map.setView(DEFAULT_FINLAND_CENTER_COORDINATES, 5);
+    competitionCalendarState.map.setView(FINLAND_CENTER_COORDINATES, 5);
   }
 }
 
@@ -1622,7 +1622,7 @@ function initCompetitionMap() {
   }
 
   const map = L.map(mapEl, {
-    center: DEFAULT_FINLAND_CENTER_COORDINATES,
+    center: FINLAND_CENTER_COORDINATES,
     zoom: 5,
     minZoom: 4,
     maxBounds: FINLAND_BOUNDS,
