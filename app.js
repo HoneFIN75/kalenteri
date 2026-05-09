@@ -67,7 +67,7 @@ const COMPETITION_PDGA_TIER_FILTER_STORAGE_KEY = 'kalenteriCompetitionPdgaTierFi
 const COMPETITION_ORGANIZER_FILTER_STORAGE_KEY = 'kalenteriCompetitionOrganizerFilter';
 const COMPETITION_TYPE_FILTER_STORAGE_KEY = 'kalenteriCompetitionTypeFilter';
 const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
-const DEFAULT_FINLAND_MAP_VIEW = [64.5, 26.0];
+const DEFAULT_FINLAND_CENTER_COORDINATES = [64.5, 26.0];
 const FINLAND_BOUNDS = [[59.2, 18.5], [70.5, 32.5]];
 const MAP_COORDINATE_KEY_PRECISION = 4;
 const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
@@ -1571,9 +1571,10 @@ function updateCompetitionMap() {
     const usageCount = coordinateUsageCount.get(key) || 0;
     coordinateUsageCount.set(key, usageCount + 1);
 
+    const hasOverlap = usageCount > 0;
     const angle = usageCount * MAP_OVERLAP_OFFSET_ANGLE_STEP;
-    const lat = coords[0] + (usageCount === 0 ? 0 : Math.sin(angle) * MAP_OVERLAP_OFFSET_RADIUS);
-    const lng = coords[1] + (usageCount === 0 ? 0 : Math.cos(angle) * MAP_OVERLAP_OFFSET_RADIUS);
+    const lat = coords[0] + (hasOverlap ? Math.sin(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
+    const lng = coords[1] + (hasOverlap ? Math.cos(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
     const marker = L.marker([lat, lng], {
       title: eventItem.title,
       riseOnHover: true,
@@ -1594,7 +1595,7 @@ function updateCompetitionMap() {
       maxZoom: MAP_FIT_BOUNDS_MAX_ZOOM,
     });
   } else {
-    competitionCalendarState.map.setView(DEFAULT_FINLAND_MAP_VIEW, 5);
+    competitionCalendarState.map.setView(DEFAULT_FINLAND_CENTER_COORDINATES, 5);
   }
 }
 
@@ -1606,7 +1607,7 @@ function initCompetitionMap() {
   }
 
   const map = L.map(mapEl, {
-    center: DEFAULT_FINLAND_MAP_VIEW,
+    center: DEFAULT_FINLAND_CENTER_COORDINATES,
     zoom: 5,
     minZoom: 4,
     maxBounds: FINLAND_BOUNDS,
@@ -1614,7 +1615,7 @@ function initCompetitionMap() {
   });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
 
   competitionCalendarState.map = map;
