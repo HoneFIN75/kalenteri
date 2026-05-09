@@ -1052,10 +1052,19 @@ body.modal-open {
 
   .competition-calendar-container .fc .fc-toolbar-chunk {
     justify-content: center;
+    min-width: 0;
+  }
+
+  .competition-calendar-container .fc .fc-button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
   }
 
   .competition-calendar-container .fc .fc-button {
     font-size: 0.82rem;
+    min-width: 0;
     padding: 0.35rem 0.6rem;
   }
 
@@ -1079,5 +1088,16 @@ body.modal-open {
   .competition-legend__item {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 400px) {
+  .competition-calendar-container .fc .fc-button {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.45rem;
+  }
+
+  .competition-calendar-container .fc .fc-toolbar-title {
+    font-size: 1rem;
   }
 }

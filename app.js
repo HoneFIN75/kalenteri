@@ -2201,6 +2201,8 @@ async function initCompetitionCalendar() {
   saveCompetitionArrayFilter(COMPETITION_ORGANIZER_FILTER_STORAGE_KEY, getCompetitionOrganizerFilterSelection());
   saveCompetitionArrayFilter(COMPETITION_TYPE_FILTER_STORAGE_KEY, getCompetitionTypeFilterSelection());
 
+  const isMobileViewport = window.matchMedia('(max-width: 500px)').matches;
+
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'fi',
@@ -2220,8 +2222,8 @@ async function initCompetitionCalendar() {
     },
     buttonText: {
       today: 'Tänään',
-      month: 'Kuukausi',
-      week: 'Viikko',
+      month: isMobileViewport ? 'Kk' : 'Kuukausi',
+      week: isMobileViewport ? 'Vk' : 'Viikko',
       list: 'Lista',
     },
     datesSet(dateInfo) {
