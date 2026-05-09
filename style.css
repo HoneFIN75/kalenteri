@@ -980,6 +980,31 @@ body.modal-open {
 }
 
 /* ── Responsive ── */
+@media (max-width: 700px) {
+  .competition-calendar-container .fc .fc-header-toolbar {
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .competition-calendar-container .fc .fc-toolbar-chunk {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
+  }
+
+  .competition-calendar-container .fc .fc-toolbar-title {
+    text-align: center;
+    width: 100%;
+  }
+
+  .competition-calendar-container .fc .fc-button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+}
+
 @media (max-width: 500px) {
   .role-grid {
     grid-template-columns: 1fr 1fr;
@@ -1023,7 +1048,7 @@ body.modal-open {
 
   .competition-calendar-container .fc .fc-button {
     font-size: 0.82rem;
-    padding: 0.35rem 0.7rem;
+    padding: 0.35rem 0.6rem;
   }
 
   .competition-filters__options {
