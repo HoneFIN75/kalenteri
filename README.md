@@ -68,6 +68,10 @@ Nykyisessä prototyypissä `kilpailija`-rooli voi rajata kilpailukalenterin näk
 luokkien perusteella. Valinta tallennetaan selaimen `sessionStorage`en samalla
 tapaa kuin roolivalinta.
 
+Kilpailukalenterissa on lista-/kalenterinäkymien lisäksi karttanäkymä, joka näyttää
+aktiivisen FullCalendar-näkymän (kuukausi, viikko tai lista) ja valittujen
+suodattimien mukaiset kilpailut paikkakunnittain Suomessa ja Ahvenanmaalla.
+
 ## Käynnistys ja vaatimukset
 
 Projekti tarvitsee:

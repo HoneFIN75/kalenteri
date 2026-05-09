@@ -67,6 +67,67 @@ const COMPETITION_PDGA_TIER_FILTER_STORAGE_KEY = 'kalenteriCompetitionPdgaTierFi
 const COMPETITION_ORGANIZER_FILTER_STORAGE_KEY = 'kalenteriCompetitionOrganizerFilter';
 const COMPETITION_TYPE_FILTER_STORAGE_KEY = 'kalenteriCompetitionTypeFilter';
 const COMPETITION_DIVISION_ORDER = ['MPO', 'FPO', 'MP40', 'FP40', 'MP50', 'FP50', 'MP55', 'FP55', 'MP60', 'FP60', 'MP65', 'FP65', 'MP70', 'FP70', 'MP75', 'FP75', 'MP80', 'FP80'];
+const FINLAND_CENTER_COORDINATES = [64.5, 26.0];
+const FINLAND_BOUNDS = [[59.2, 18.5], [70.5, 32.5]];
+const MAP_COORDINATE_KEY_PRECISION = 4;
+const MAP_OVERLAP_OFFSET_RADIUS = 0.03;
+const MAP_OVERLAP_OFFSET_ANGLE_STEP_RADIANS = 1.2;
+const MAP_FIT_BOUNDS_MAX_ZOOM = 9;
+const MAP_SINGLE_MARKER_ZOOM = 6;
+const MAP_TILE_SERVER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const MUNICIPALITY_COORDINATES = {
+  helsinki: [60.1699, 24.9384],
+  espoo: [60.2055, 24.6559],
+  vantaa: [60.2934, 25.0378],
+  kauniainen: [60.2116, 24.7284],
+  turku: [60.4518, 22.2666],
+  tampere: [61.4981, 23.7608],
+  oulu: [65.0121, 25.4651],
+  jyvaskyla: [62.2426, 25.7473],
+  kuopio: [62.8924, 27.677],
+  lahti: [60.9827, 25.6615],
+  pori: [61.4851, 21.7974],
+  vaasa: [63.0951, 21.6165],
+  joensuu: [62.601, 29.7636],
+  lappeenranta: [61.0583, 28.1887],
+  raahe: [64.6839, 24.4817],
+  rovaniemi: [66.5039, 25.7294],
+  kajaani: [64.227, 27.7285],
+  kotka: [60.4674, 26.9458],
+  kouvola: [60.8679, 26.7042],
+  savonlinna: [61.868, 28.8862],
+  seinajoki: [62.7945, 22.8282],
+  harjavalta: [61.3168, 22.1373],
+  nokia: [61.4786, 23.5056],
+  hyvinkaa: [60.6337, 24.8631],
+  jarvenpaa: [60.4737, 25.0899],
+  kerava: [60.4034, 25.105],
+  lohja: [60.2487, 24.0657],
+  porvoo: [60.3932, 25.665],
+  salo: [60.3833, 23.1333],
+  raisio: [60.4869, 22.1683],
+  naantali: [60.4667, 22.0333],
+  rauma: [61.1308, 21.5111],
+  kankaanpaa: [61.8059, 22.3966],
+  mikkeli: [61.6886, 27.2723],
+  heinola: [61.203, 26.035],
+  hameenlinna: [60.9967, 24.4643],
+  riihimaki: [60.7378, 24.7773],
+  nakkila: [61.3663, 22.0045],
+  ylivieska: [64.0736, 24.5458],
+  imatra: [61.1719, 28.77],
+  maarianhamina: [60.0973, 19.9348],
+  ahvenanmaa: [60.1785, 20.0],
+  jomala: [60.1525, 19.9494],
+  lemland: [60.07, 20.08],
+  finstrom: [60.23, 19.9],
+  sund: [60.24, 20.1],
+  saltvik: [60.28, 20.07],
+};
+const MUNICIPALITY_ALIASES = {
+  mariehamn: 'maarianhamina',
+  aland: 'ahvenanmaa',
+};
 
 /**
  * PDGA-tasojen visuaalinen määrittely: väri, ikoni ja näyttönimi.
@@ -108,6 +169,10 @@ function pdgaTierBadgeHtml(tier) {
 let cachedNewsItems = [];
 const competitionCalendarState = {
   calendar: null,
+  map: null,
+  mapMarkersLayer: null,
+  mapRangeStart: null,
+  mapRangeEnd: null,
   events: [],
   availableDivisions: [],
   availablePdgaTiers: [],
@@ -1816,6 +1881,8 @@ function renderCompetitionCalendarFilter() {
     }
   }
 
+  updateCompetitionMap();
+
   if (competitionCalendarState.events.length === 0) {
     statusEl.textContent = 'Kilpailuja ei löytynyt.';
     statusEl.hidden = false;
@@ -1932,6 +1999,153 @@ function closeCompetitionModal() {
   document.body.classList.remove('modal-open');
 }
 
+/** Poistaa ääkköset ja erikoismerkit kuntahakuavainta varten. */
+function normalizeMunicipalityKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** Pilkkoo paikkakuntakentän mahdolliset vaihtoehdot (esim. "Maarianhamina / Mariehamn"). */
+function getMunicipalityCandidates(rawValue) {
+  return String(rawValue || '')
+    .split(/[\/,;()]/)
+    .map((part) => normalizeMunicipalityKey(part))
+    .filter(Boolean);
+}
+
+/** Luo vakioavaimen koordinaattien ryhmittelyyn markerien limityksen estossa. */
+function createCoordinateKey(coordinates) {
+  const [lat, lng] = coordinates;
+  return `${lat.toFixed(MAP_COORDINATE_KEY_PRECISION)},${lng.toFixed(MAP_COORDINATE_KEY_PRECISION)}`;
+}
+
+/** Palauttaa paikkakunnalle koordinaatit tai null, jos niitä ei löydy. */
+function resolveCompetitionCoordinates(paikkakunta) {
+  const candidates = getMunicipalityCandidates(paikkakunta);
+  for (const candidate of candidates) {
+    const normalizedVariants = [candidate.replace(/\s+/g, ''), candidate];
+    for (const variant of normalizedVariants) {
+      const aliasKey = MUNICIPALITY_ALIASES[variant] || variant;
+      if (MUNICIPALITY_COORDINATES[aliasKey]) {
+        return MUNICIPALITY_COORDINATES[aliasKey];
+      }
+    }
+  }
+  return null;
+}
+
+/** Muuntaa kilpailudatan map-markerin modal-klikkaukseen sopivaksi eventInfo-rakenteeksi. */
+function toCompetitionModalEventInfo(eventItem) {
+  return {
+    event: {
+      title: eventItem.title,
+      startStr: eventItem.start,
+      endStr: eventItem.end,
+      extendedProps: eventItem.extendedProps || {},
+    },
+  };
+}
+
+/** Palauttaa kilpailut sekä aktiivisten suodattimien että näkyvän kalenterivälin perusteella. */
+function getVisibleCompetitionEventsForMap() {
+  const visibleEvents = getFilteredCompetitionEvents();
+
+  if (!competitionCalendarState.mapRangeStart || !competitionCalendarState.mapRangeEnd) {
+    return visibleEvents;
+  }
+
+  const rangeStartTime = competitionCalendarState.mapRangeStart.getTime();
+  const rangeEndTime = competitionCalendarState.mapRangeEnd.getTime();
+
+  return visibleEvents.filter((eventItem) => {
+    const eventStart = new Date(eventItem.start);
+    const eventEndExclusive = new Date(eventItem.end || eventItem.start);
+    return eventStart.getTime() < rangeEndTime && eventEndExclusive.getTime() > rangeStartTime;
+  });
+}
+
+/** Päivittää karttanäkymän markerit aktiivisella suodatus- ja päivämäärärajauksella. */
+function updateCompetitionMap() {
+  if (!competitionCalendarState.map || !competitionCalendarState.mapMarkersLayer) {
+    return;
+  }
+
+  const events = getVisibleCompetitionEventsForMap();
+  competitionCalendarState.mapMarkersLayer.clearLayers();
+
+  const coordinateUsageCount = new Map();
+  const markerCoordinates = [];
+
+  events.forEach((eventItem) => {
+    const coords = resolveCompetitionCoordinates(eventItem?.extendedProps?.paikkakunta);
+    if (!coords) {
+      return;
+    }
+
+    const key = createCoordinateKey(coords);
+    const usageCount = coordinateUsageCount.get(key) || 0;
+    coordinateUsageCount.set(key, usageCount + 1);
+
+    const hasOverlap = usageCount > 0;
+    const angle = usageCount * MAP_OVERLAP_OFFSET_ANGLE_STEP_RADIANS;
+    const lat = coords[0] + (hasOverlap ? Math.sin(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
+    const lng = coords[1] + (hasOverlap ? Math.cos(angle) * MAP_OVERLAP_OFFSET_RADIUS : 0);
+    const marker = L.marker([lat, lng], {
+      title: eventItem.title,
+      riseOnHover: true,
+    });
+
+    marker.on('click', () => {
+      openCompetitionModal(toCompetitionModalEventInfo(eventItem));
+    });
+    marker.bindTooltip(escapeHtml(eventItem.title));
+
+    competitionCalendarState.mapMarkersLayer.addLayer(marker);
+    markerCoordinates.push([lat, lng]);
+  });
+
+  if (markerCoordinates.length === 1) {
+    competitionCalendarState.map.setView(markerCoordinates[0], MAP_SINGLE_MARKER_ZOOM);
+    return;
+  }
+
+  if (markerCoordinates.length > 1) {
+    competitionCalendarState.map.fitBounds(markerCoordinates, {
+      padding: [24, 24],
+      maxZoom: MAP_FIT_BOUNDS_MAX_ZOOM,
+    });
+  } else {
+    competitionCalendarState.map.setView(FINLAND_CENTER_COORDINATES, 5);
+  }
+}
+
+/** Alustaa kilpailukalenterin karttanäkymän. */
+function initCompetitionMap() {
+  const mapEl = document.getElementById('competition-calendar-map');
+  if (!mapEl || typeof L === 'undefined') {
+    return;
+  }
+
+  const map = L.map(mapEl, {
+    center: FINLAND_CENTER_COORDINATES,
+    zoom: 5,
+    minZoom: 4,
+    maxBounds: FINLAND_BOUNDS,
+    maxBoundsViscosity: 0.8,
+  });
+
+  L.tileLayer(MAP_TILE_SERVER_URL, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+
+  competitionCalendarState.map = map;
+  competitionCalendarState.mapMarkersLayer = L.layerGroup().addTo(map);
+}
+
 /** Pakenee HTML-erikoismerkit. */
 function escapeHtml(str) {
   return String(str)
@@ -1948,6 +2162,7 @@ async function initCompetitionCalendar() {
   const statusEl = document.getElementById('competition-calendar-status');
 
   if (!calendarEl) return;
+  initCompetitionMap();
 
   let events = [];
 
@@ -2023,6 +2238,11 @@ async function initCompetitionCalendar() {
     events(info, successCallback) {
       successCallback(getFilteredCompetitionEvents());
     },
+    datesSet(dateInfo) {
+      competitionCalendarState.mapRangeStart = dateInfo.start;
+      competitionCalendarState.mapRangeEnd = dateInfo.end;
+      updateCompetitionMap();
+    },
     eventTextColor: '#ffffff',
     eventDisplay: 'block',
     displayEventTime: false,
@@ -2045,6 +2265,7 @@ async function initCompetitionCalendar() {
   competitionCalendarState.calendar = calendar;
   calendar.render();
   renderCompetitionCalendarFilter();
+  updateCompetitionMap();
 
   // Modalin sulkeminen
   document.getElementById('competition-modal-close').addEventListener('click', closeCompetitionModal);
