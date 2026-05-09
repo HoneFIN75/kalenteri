@@ -191,6 +191,187 @@
 
     <section id="news-detail-view" class="news-detail hidden" aria-live="polite"></section>
 
+    <!-- ── Hakemukset-osio ── -->
+    <section id="applications-section" class="applications-section" aria-labelledby="applications-heading" hidden>
+      <div class="panel-header">
+        <div>
+          <h2 class="section-title" id="applications-heading">Hakemukset</h2>
+          <p class="section-copy" id="applications-section-copy"></p>
+        </div>
+        <button type="button" id="new-application-button" class="primary-button" hidden>
+          + Uusi hakemus
+        </button>
+      </div>
+
+      <!-- Suodatus -->
+      <div id="applications-filter-bar" class="applications-filter-bar">
+        <label class="applications-filter-label" for="applications-status-filter">Tila:</label>
+        <select id="applications-status-filter" class="applications-status-select">
+          <option value="">Kaikki tilat</option>
+          <option value="avoin">Avoin</option>
+          <option value="liitto_kasittelee">Liitto käsittelee</option>
+          <option value="hyvaksytty">Hyväksytty</option>
+          <option value="hylatty">Hylätty</option>
+        </select>
+      </div>
+
+      <!-- Lista -->
+      <div id="applications-list" class="applications-list" aria-live="polite">
+        <p class="list-message list-message--muted">Ladataan hakemuksia…</p>
+      </div>
+    </section>
+
+    <!-- ── Hakemuslomake ── -->
+    <section id="application-form-section" class="application-form-section" hidden aria-labelledby="application-form-heading">
+      <div class="panel-header">
+        <div>
+          <h2 class="section-title" id="application-form-heading">Kilpailuhakemus</h2>
+          <p id="application-form-status-note" class="application-status-note"></p>
+        </div>
+        <button type="button" id="application-back-button" class="secondary-button">← Takaisin</button>
+      </div>
+
+      <!-- Liiton kommentti (näkyy kun on) -->
+      <div id="liitto-comment-box" class="comment-box comment-box--liitto" hidden>
+        <strong>Liiton kommentti:</strong>
+        <p id="liitto-comment-text"></p>
+      </div>
+
+      <!-- Kilpailunjohtajan kommentti (näkyy liitto-roolille) -->
+      <div id="kj-comment-box" class="comment-box comment-box--kj" hidden>
+        <strong>Kilpailunjohtajan kommentti:</strong>
+        <p id="kj-comment-text"></p>
+      </div>
+
+      <form id="application-form" class="application-form" novalidate>
+        <input type="hidden" id="application-id" />
+
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Kilpailun nimi <span class="required">*</span></span>
+            <input type="text" id="app-kilpailunnimi" name="kilpailunnimi" maxlength="255" />
+          </label>
+
+          <label class="form-field">
+            <span>Järjestäjä <span class="required">*</span></span>
+            <input type="text" id="app-jarjestaja" name="jarjestaja" maxlength="255" />
+          </label>
+
+          <label class="form-field">
+            <span>Paikkakunta <span class="required">*</span></span>
+            <input type="text" id="app-paikkakunta" name="paikkakunta" maxlength="255" />
+          </label>
+
+          <label class="form-field">
+            <span>Rata <span class="required">*</span></span>
+            <input type="text" id="app-rata" name="rata" maxlength="255" />
+          </label>
+
+          <label class="form-field">
+            <span>Aloituspäivämäärä <span class="required">*</span></span>
+            <input type="date" id="app-aloituspvm" name="aloituspvm" />
+          </label>
+
+          <label class="form-field">
+            <span>Päätöspäivämäärä <span class="required">*</span></span>
+            <input type="date" id="app-paatospvm" name="paatospvm" />
+          </label>
+
+          <label class="form-field">
+            <span>Haettava kilpailu <span class="required">*</span></span>
+            <select id="app-haettavakilpailu" name="haettavakilpailu">
+              <option value="">– Valitse –</option>
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span>Kilpailuluokat <span class="required">*</span></span>
+            <select id="app-kilpailuluokat" name="kilpailuluokat">
+              <option value="">– Valitse –</option>
+            </select>
+          </label>
+
+          <fieldset class="form-field form-field--full">
+            <legend>PDGA Tier <span class="required">*</span></legend>
+            <div id="app-pdgatier-options" class="radio-group"></div>
+          </fieldset>
+
+          <label class="form-field" id="pdga-tier-other-row" hidden>
+            <span>PDGA Tier Other <span class="required">*</span></span>
+            <input type="text" id="app-pdga-tier-other" name="pdga_tier_other" maxlength="100" />
+          </label>
+
+          <label class="form-field">
+            <span>Max pelaajamäärä <span class="required">*</span></span>
+            <input type="number" id="app-maxpelaajamaara" name="maxpelaajamaara" min="1" />
+          </label>
+
+          <label class="form-field">
+            <span>Väylien määrä / kierros <span class="required">*</span></span>
+            <input type="number" id="app-vaylienmaarapk" name="vaylienmaarapk" min="1" />
+          </label>
+
+          <label class="form-field">
+            <span>Kierrosten määrä <span class="required">*</span></span>
+            <input type="number" id="app-kierrostenmaara" name="kierrostenmaara" min="1" />
+          </label>
+
+          <label class="form-field">
+            <span>DGM-linkki</span>
+            <input type="url" id="app-dgm-link" name="dgm_link" maxlength="500" placeholder="https://…" />
+          </label>
+
+          <label class="form-field">
+            <span>Kilpailunjohtaja (TD)</span>
+            <input type="text" id="app-kilpailunjohtaja" name="kilpailunjohtaja" maxlength="255" />
+          </label>
+
+          <label class="form-field">
+            <span>Kilpailunjohtajan PDGA-numero</span>
+            <input type="text" id="app-kilpailunjohtajapdga" name="kilpailunjohtajapdga" maxlength="50" />
+          </label>
+
+          <label class="form-field">
+            <span>Apukilpailunjohtaja</span>
+            <input type="text" id="app-apukilpailunjohtaja" name="apukilpailunjohtaja" maxlength="255" />
+          </label>
+
+          <label class="form-field">
+            <span>Apukilpailunjohtajan PDGA-numero</span>
+            <input type="text" id="app-apukilpailunjohtajapdga" name="apukilpailunjohtajapdga" maxlength="50" />
+          </label>
+        </div>
+
+        <!-- Divisions-monivalinta -->
+        <fieldset class="form-field form-field--full">
+          <legend>Luokat (Divisions)</legend>
+          <div id="app-divisions-options" class="checkbox-grid checkbox-grid--compact"></div>
+        </fieldset>
+
+        <!-- Kilpailunjohtajan kommentti lähettämiseen -->
+        <label class="form-field form-field--full" id="kj-send-comment-row" hidden>
+          <span>Kommentti liittoon (vapaaehtoinen)</span>
+          <textarea id="app-kj-comment" name="kilpailunjohtaja_comment" rows="3"></textarea>
+        </label>
+
+        <!-- Toimintopainikkeet -->
+        <div class="form-actions" id="application-form-actions"></div>
+      </form>
+
+      <!-- Liiton hyväksyntä / hylkäys -paneeli -->
+      <div id="liitto-decision-panel" class="liitto-decision-panel" hidden>
+        <h3 class="liitto-decision-panel__title">Liiton päätös</h3>
+        <label class="form-field">
+          <span>Kommentti <span class="required">*</span></span>
+          <textarea id="liitto-decision-comment" rows="4" placeholder="Kirjoita pakollinen kommentti…"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="button" id="liitto-approve-button" class="primary-button">✔ Hyväksy</button>
+          <button type="button" id="liitto-reject-button" class="danger-button">✖ Hylkää</button>
+        </div>
+      </div>
+    </section>
+
     <!-- Tietoa tulevasta kehityksestä -->
     <aside class="info-box" aria-label="Tietoa prototyypistä">
       <span class="info-icon" aria-hidden="true">ℹ️</span>

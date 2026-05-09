@@ -75,15 +75,17 @@ if ($method !== 'GET') {
 }
 
 $statement = $pdo->query(
-    'SELECT id, kilpailunnimi, aloituspvm, paatospvm, haettavakilpailu,
+    "SELECT id, kilpailunnimi, aloituspvm, paatospvm, haettavakilpailu,
             jarjestaja, paikkakunta, rata, kilpailuluokat, pdgatier,
             maxpelaajamaara, vaylienmaarapk, kierrostenmaara,
             kilpailunjohtaja, kilpailunjohtajapdga,
             apukilpailunjohtaja, apukilpailunjohtajapdga,
             MPO, FPO, MP40, FP40, MP50, FP50, MP55, FP55,
-            MP60, FP60, MP65, FP65, MP70, FP70, MP75, FP75, MP80, FP80
+            MP60, FP60, MP65, FP65, MP70, FP70, MP75, FP75, MP80, FP80,
+            dgm_link
      FROM kilpailukalenteri
-     ORDER BY id ASC'
+     WHERE status = 'hyvaksytty' OR status IS NULL
+     ORDER BY id ASC"
 );
 
 $rows = $statement->fetchAll();
@@ -133,6 +135,7 @@ foreach ($rows as $row) {
             'divisions'              => $divisions,
             'startFormatted'         => $startRaw,
             'endFormatted'           => $endRaw,
+            'dgm_link'               => trim((string) ($row['dgm_link'] ?? '')),
         ],
     ];
 }
