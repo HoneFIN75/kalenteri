@@ -666,9 +666,9 @@ function renderCompetitionMap() {
 
 /** Kytkee karttanäkymän päälle tai pois. */
 function toggleCompetitionMap() {
-  const mapEl = document.getElementById('competition-map');
+  const mapPanelEl = document.getElementById('competition-map-panel');
   const calendarEl = document.getElementById('competition-calendar');
-  if (!mapEl || !calendarEl) return;
+  if (!mapPanelEl || !calendarEl) return;
 
   const viewHarness = calendarEl.querySelector('.fc-view-harness');
   const mapBtn = calendarEl.querySelector('.fc-karttaNakyma-button');
@@ -677,12 +677,15 @@ function toggleCompetitionMap() {
 
   if (competitionCalendarState.mapActive) {
     if (viewHarness) viewHarness.style.display = 'none';
-    mapEl.hidden = false;
+    mapPanelEl.hidden = false;
     if (mapBtn) mapBtn.classList.add('fc-button-active');
-    renderCompetitionMap();
+    updateCompetitionMap();
+    if (competitionCalendarState.map) {
+      competitionCalendarState.map.invalidateSize();
+    }
   } else {
     if (viewHarness) viewHarness.style.display = '';
-    mapEl.hidden = true;
+    mapPanelEl.hidden = true;
     if (mapBtn) mapBtn.classList.remove('fc-button-active');
   }
 }
@@ -2210,8 +2213,7 @@ async function initCompetitionCalendar() {
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,listMonth',
-      right: 'dayGridMonth,timeGridWeek,listYear,karttaNakyma',
+      right: 'dayGridMonth,dayGridWeek,listForwardMonth,karttaNakyma',
     },
     buttonText: {
       today: 'Tänään',
@@ -2219,30 +2221,24 @@ async function initCompetitionCalendar() {
       week: 'Viikko',
       list: 'Lista',
     },
-    datesSet(arg) {
-      competitionCalendarState.currentDateRange = { start: arg.start, end: arg.end };
-      if (competitionCalendarState.mapActive) {
-        renderCompetitionMap();
-      }
+    datesSet(dateInfo) {
+      competitionCalendarState.mapRangeStart = dateInfo.start;
+      competitionCalendarState.mapRangeEnd = dateInfo.end;
+      updateCompetitionMap();
     },
     viewDidMount() {
       if (competitionCalendarState.mapActive) {
-        const mapEl = document.getElementById('competition-map');
+        const mapPanelEl = document.getElementById('competition-map-panel');
         const viewHarness = calendarEl.querySelector('.fc-view-harness');
         const mapBtn = calendarEl.querySelector('.fc-karttaNakyma-button');
         competitionCalendarState.mapActive = false;
         if (viewHarness) viewHarness.style.display = '';
-        if (mapEl) mapEl.hidden = true;
+        if (mapPanelEl) mapPanelEl.hidden = true;
         if (mapBtn) mapBtn.classList.remove('fc-button-active');
       }
     },
     events(info, successCallback) {
       successCallback(getFilteredCompetitionEvents());
-    },
-    datesSet(dateInfo) {
-      competitionCalendarState.mapRangeStart = dateInfo.start;
-      competitionCalendarState.mapRangeEnd = dateInfo.end;
-      updateCompetitionMap();
     },
     eventTextColor: '#ffffff',
     eventDisplay: 'block',
@@ -2256,9 +2252,19 @@ async function initCompetitionCalendar() {
     },
     noEventsText: 'Ei kilpailuja tällä ajanjaksolla.',
     views: {
-      listMonth: {
+      listForwardMonth: {
+        type: 'list',
+        duration: { months: 1 },
+        dateIncrement: { months: 1 },
         buttonText: 'Lista',
         noEventsText: 'Ei kilpailuja tällä ajanjaksolla.',
+        visibleRange(currentDate) {
+          const start = new Date(currentDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(start);
+          end.setMonth(end.getMonth() + 1);
+          return { start, end };
+        },
       },
     },
   });
