@@ -1478,7 +1478,7 @@ async function initCompetitionCalendar() {
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,listYear',
+      right: 'dayGridMonth,timeGridWeek,listMonth',
     },
     buttonText: {
       today: 'Tänään',
@@ -1501,7 +1501,7 @@ async function initCompetitionCalendar() {
     },
     noEventsText: 'Ei kilpailuja tällä ajanjaksolla.',
     views: {
-      listYear: {
+      listMonth: {
         buttonText: 'Lista',
         noEventsText: 'Ei kilpailuja tällä ajanjaksolla.',
       },
