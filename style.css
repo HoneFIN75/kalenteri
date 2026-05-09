@@ -983,6 +983,7 @@ body.modal-open {
 @media (max-width: 700px) {
   .competition-calendar-container .fc .fc-header-toolbar {
     align-items: stretch;
+    flex-direction: column;
     gap: 0.5rem;
   }
 
@@ -991,9 +992,12 @@ body.modal-open {
     flex-wrap: wrap;
     gap: 0.35rem;
     justify-content: center;
+    width: 100%;
   }
 
   .competition-calendar-container .fc .fc-toolbar-title {
+    margin: 0;
+    overflow-wrap: anywhere;
     text-align: center;
     width: 100%;
   }
@@ -1044,6 +1048,10 @@ body.modal-open {
   .competition-calendar-container .fc .fc-toolbar {
     flex-wrap: wrap;
     gap: 0.5rem;
+  }
+
+  .competition-calendar-container .fc .fc-toolbar-chunk {
+    justify-content: center;
   }
 
   .competition-calendar-container .fc .fc-button {

@@ -1845,12 +1845,15 @@ function renderCompetitionCalendarFilter() {
   const selectedOrganizers = getCompetitionOrganizerFilterSelection();
   const selectedCompetitionTypes = getCompetitionTypeFilterSelection();
   const filterConfig = getCompetitionCalendarFilterConfig(selectedRole);
+  const hasAvailableFilterOptions = filterConfig
+    ? filterConfig.groups.some((group) => group.availableValues.length > 0)
+    : false;
   const hasActiveFilters = filterConfig ? filterConfig.groups.some((group) => group.selectedValues.length > 0) : false;
 
-  filterContainer.hidden = !filterConfig;
+  filterContainer.hidden = !filterConfig || !hasAvailableFilterOptions;
   filterOptions.innerHTML = '';
 
-  if (!filterConfig) {
+  if (!filterConfig || !hasAvailableFilterOptions) {
     filterTitle.textContent = '';
     filterCopy.textContent = '';
     filterSummary.textContent = '';
