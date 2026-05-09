@@ -555,6 +555,193 @@ footer {
   color: var(--color-text-muted);
 }
 
+/* ── Competition calendar ── */
+.competition-calendar-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+
+.competition-calendar-container {
+  margin-top: 0.5rem;
+}
+
+.competition-calendar-status {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #78350f;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+/* Override some FullCalendar defaults to match site style */
+.competition-calendar-container .fc {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.competition-calendar-container .fc .fc-button {
+  background: var(--color-primary);
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  transition: background var(--transition);
+}
+
+.competition-calendar-container .fc .fc-button:hover,
+.competition-calendar-container .fc .fc-button:focus {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-hover);
+}
+
+.competition-calendar-container .fc .fc-button-active,
+.competition-calendar-container .fc .fc-button:not(:disabled).fc-button-active {
+  background: var(--color-primary-dark);
+}
+
+.competition-calendar-container .fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.competition-calendar-container .fc .fc-event {
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  overflow: hidden;
+  padding: 0.15rem 0.35rem;
+  white-space: nowrap;
+}
+
+.competition-calendar-container .fc .fc-event-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competition-calendar-container .fc .fc-list-event:hover td {
+  background: var(--color-selected-bg);
+  cursor: pointer;
+}
+
+.competition-calendar-container .fc .fc-list-event-title a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ── Competition detail modal ── */
+.competition-modal {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+.competition-modal[hidden] {
+  display: none;
+}
+
+.competition-modal__backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.competition-modal__panel {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.22);
+  max-height: 90vh;
+  max-width: 560px;
+  overflow-y: auto;
+  padding: 2rem 1.75rem 1.75rem;
+  position: relative;
+  width: calc(100% - 2rem);
+  z-index: 1;
+}
+
+.competition-modal__close {
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  height: 2rem;
+  line-height: 1;
+  padding: 0;
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  transition: color var(--transition);
+  width: 2rem;
+}
+
+.competition-modal__close:hover,
+.competition-modal__close:focus-visible {
+  color: var(--color-text);
+  outline: 2px solid var(--color-primary);
+}
+
+.competition-modal__content {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.comp-detail-title {
+  font-size: clamp(1.1rem, 3vw, 1.4rem);
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 0.5rem;
+  padding-right: 1.5rem;
+}
+
+.comp-detail-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.comp-detail-row {
+  border-bottom: 1px solid var(--color-border);
+  display: grid;
+  gap: 0.2rem;
+  grid-template-columns: 160px 1fr;
+  padding-bottom: 0.5rem;
+}
+
+.comp-detail-label {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding-top: 0.1rem;
+  text-transform: uppercase;
+}
+
+.comp-detail-value {
+  color: var(--color-text);
+  font-size: 0.92rem;
+  word-break: break-word;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
 /* ── Responsive ── */
 @media (max-width: 500px) {
   .role-grid {
@@ -586,5 +773,19 @@ footer {
 
   .form-actions .primary-button {
     width: 100%;
+  }
+
+  .comp-detail-row {
+    grid-template-columns: 1fr;
+  }
+
+  .competition-calendar-container .fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .competition-calendar-container .fc .fc-button {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.7rem;
   }
 }
